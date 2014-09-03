@@ -26,10 +26,14 @@
 #include <GLFW/glfw3.h>
 
 #include "floodfill/ff64.h"
+#include "floodfill/ff2d.h"
 #include "floodfill/isolate.h"
+
+#include "dilate_erode/packed.h"
 
 #include "makesolid.h"
 #include "measure.h"
+#include "memandor.h"
 
 static void checkForOpenGLError(const char* file, int line) {
 	GLenum glErr = glGetError();
@@ -49,7 +53,7 @@ static GLuint compile_shader(const char *fn, GLenum stype) {
 	src[srclen] = 0;
 
 	GLuint shader = glCreateShader(stype); GL_ERROR();
-	glShaderSource(shader, 1, &src, NULL); GL_ERROR();
+	glShaderSource(shader, 1, (const char *const *) &src, NULL); GL_ERROR();
 
 	free(src);
 
@@ -140,18 +144,7 @@ static v4sf v_cross(v4sf a, v4sf b) {
 	return r;
 }
 
-typedef v4sf mat4[4];
-static void m_mult(mat4 A, mat4 B, mat4 out) {
-	for (int row = 0; row < 4; row++) {
-		for (int col = 0; col < 4; col++) {
-			double v = 0.0f;
-			for (int i = 0; i < 4; i++) {
-				v += B[row][i] * A[i][col];
-			}
-			out[row][col] = v;
-		}
-	}
-}
+typedef float mat4[16];
 
 static void m_lookat(v4sf eye, v4sf obj, v4sf up, mat4 out) {
 	v4sf f = v_normalize(obj - eye);
@@ -161,47 +154,24 @@ static void m_lookat(v4sf eye, v4sf obj, v4sf up, mat4 out) {
 	memset(out, 0, sizeof(mat4));
 
 	for (int i = 0; i < 3; i++) {
-		out[i][0] = s[i];
-		out[i][1] = u[i];
-		out[i][2] = -f[i];
+		out[4*i + 0] = s[i];
+		out[4*i + 1] = u[i];
+		out[4*i + 2] = -f[i];
 	}
-	out[3][0] = -v_dot(s, eye);
-	out[3][1] = -v_dot(u, eye);
-	out[3][2] = v_dot(f, eye);
-	out[3][3] = 1.0f;
+	out[4*3 + 0] = -v_dot(s, eye);
+	out[4*3 + 1] = -v_dot(u, eye);
+	out[4*3 + 2] = v_dot(f, eye);
+	out[4*3 + 3] = 1.0f;
 }
 
 static void m_perspective(float fovy, float aspect, float znear, float zfar, mat4 out) {
 	float tanHalfFovy = tanf(fovy * 0.5f);
 	memset(out, 0, sizeof(mat4));
-	out[0][0] = 1.0f / (aspect * tanHalfFovy);
-	out[1][1] = 1.0f / tanHalfFovy;
-	out[2][2] = (znear + zfar) / (znear - zfar);
-	out[2][3] = -1.0f;
-	out[3][2] = (2.0f * znear * zfar) / (znear - zfar);
-}
-
-static void m_id4(mat4 out) {
-	memset(out, 0, sizeof(mat4));
-	for (int i = 0; i < 4; i++) {
-		out[i][i] = 1.0f;
-	}
-}
-
-static void m_transp(mat4 in, mat4 out) {
-	for (int row = 0; row < 4; row++) {
-		for (int col = 0; col < 4; col++) {
-			out[row][col] = in[col][row];
-		}
-	}
-}
-
-static void m_print(mat4 m, const char *n) {
-	float *mm = m;
-	fprintf(stderr, "++ %s ++\n", n);
-	for (int r = 0; r < 4; r++) {
-		fprintf(stderr, "[%d] %10.5f %10.5f %10.5f %10.5f\n", r, mm[4*r+0], mm[4*r+1], mm[4*r+2], mm[4*r+3]);
-	}
+	out[4*0 + 0] = 1.0f / (aspect * tanHalfFovy);
+	out[4*1 + 1] = 1.0f / tanHalfFovy;
+	out[4*2 + 2] = (znear + zfar) / (znear - zfar);
+	out[4*2 + 3] = -1.0f;
+	out[4*3 + 2] = (2.0f * znear * zfar) / (znear - zfar);
 }
 
 static void dilate_times(binary_t im_out, binary_t im_in, int n) {
@@ -216,7 +186,7 @@ static void dilate_times(binary_t im_out, binary_t im_in, int n) {
 		p0 = p1;
 		p1 = swap_tmp;
 
-		dilate_packed((struct i3d *)p0, (struct i3d *)p1);
+		dilate_packed(p0, p1);
 	}
 
 	unpack_binary(im_out, p0);
@@ -237,7 +207,7 @@ static void erode_times(binary_t im_out, binary_t im_in, int n) {
 		p0 = p1;
 		p1 = swap_tmp;
 
-		erode_packed((struct i3d *)p0, (struct i3d *)p1);
+		erode_packed(p0, p1);
 	}
 
 	unpack_binary(im_out, p0);
@@ -547,6 +517,8 @@ void do_light() {
 }
 
 static void keyfun(GLFWwindow *win, int key, int scancode, int action, int mods) {
+	(void)win; (void)scancode; (void)mods; /* unused */
+
 	if (action != GLFW_PRESS && action != GLFW_REPEAT) {
 		return;
 	}
@@ -573,11 +545,13 @@ static void keyfun(GLFWwindow *win, int key, int scancode, int action, int mods)
 }
 
 static void resizefun(GLFWwindow *win, int width, int height) {
+	(void)win; /* unused */
+
 	fprintf(stderr, "%d x %d\n", width, height);
 	glViewport(0, 0, width, height);
 }
 
-int main(int argc, char *argv[]) {
+int main() {
 	GLFWwindow *window;
 
 	if (!glfwInit()) {
@@ -607,9 +581,7 @@ int main(int argc, char *argv[]) {
 	glUseProgram(shaderprog); GL_ERROR();
 	#endif
 
-	mat4 m, v, p;
-	m_id4(m);
-	mat4 pv, mvp;
+	mat4 mat_view, mat_proj;
 	int angle = 0;
 	v4sf cube_center = { im_closed->size_x/2.0f, im_closed->size_y/2.0f, im_closed->size_z/2.0f, 0.0f };
 	while (!glfwWindowShouldClose(window)) {
@@ -626,26 +598,24 @@ int main(int argc, char *argv[]) {
 
 		int width, height;
 		glfwGetWindowSize(window, &width, &height);
-		m_perspective(40.0f / 180.f * M_PI, (float)width/height, 0.1f, 4000.0f, p);
+		m_perspective(40.0f / 180.f * M_PI, (float)width/height, 0.1f, 4000.0f, mat_proj);
 		m_lookat(
 			(v4sf){ 500.f, 500.f, 200.f, 1.0f } * (v4sf){ cosf(angle / 180.0f * M_PI), sinf(angle / 180.0f * M_PI), 1.0f, 1.0f } + cube_center,
 			cube_center,
 			(v4sf){ 0.0f, 0.0f, 1.0f, 0.0f },
-			v
+			mat_view
 		);
-		m_mult(p, v, pv);
-		m_mult(pv, m, mvp);
 
 		#ifdef FIXED_PL
 		glMatrixMode(GL_PROJECTION);
-		glLoadMatrixf(p);
+		glLoadMatrixf(mat_proj);
 		glMatrixMode(GL_MODELVIEW);
-		glLoadMatrixf(v);
+		glLoadMatrixf(mat_view);
 		#else
 		GLuint view_i = glGetUniformLocation(shaderprog, "mat_view"); GL_ERROR();
-		glUniformMatrix4fv(view_i, 1, GL_FALSE, v); GL_ERROR();
+		glUniformMatrix4fv(view_i, 1, GL_FALSE, mat_view); GL_ERROR();
 		GLuint proj_i = glGetUniformLocation(shaderprog, "mat_proj"); GL_ERROR();
-		glUniformMatrix4fv(proj_i, 1, GL_FALSE, p); GL_ERROR();
+		glUniformMatrix4fv(proj_i, 1, GL_FALSE, mat_proj); GL_ERROR();
 		#endif
 
 		glDrawArrays(GL_TRIANGLES, 0, vbo_size);
