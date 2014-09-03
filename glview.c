@@ -18,6 +18,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <time.h>
 
 #define GL_GLEXT_PROTOTYPES
 #include <GL/gl.h>
@@ -217,7 +218,8 @@ static void erode_times(binary_t im_out, binary_t im_in, int n) {
 }
 
 static grayscale_t im_dicom = NULL;
-static binary_t im_closed = NULL;
+static binary_t im_slots[2];
+int image_generated = 0;
 
 uint16_t tv = 1700;
 
@@ -228,8 +230,10 @@ static void dicom_load() {
 }
 
 static void rebinarize() {
-	if (im_closed != NULL) {
-		binary_free(im_closed);
+	if (image_generated) {
+		for (int i = 0; i < 2; i++) {
+			binary_free(im_slots[i]);
+		}
 	}
 
 	#ifdef SIMPLE_CUBE
@@ -347,19 +351,21 @@ static void rebinarize() {
 
 	binary_free(insides5);
 	binary_free(insides10);
-	binary_free(im_bin);
-	im_closed = closed;
+
+	im_slots[1] = closed;
+	im_slots[0] = im_bin;
 }
 
 /* Rendering Binary image into VBO. */
 GLuint vao_id;
 GLuint vbo_id, vbo_id_n;
 int vbo_initialized = 0;
-int vbo_size;
+int vbo_vertcount;
 
-static void cubedim(float xa, float ya, float za, float xb, float yb, float zb, float *obuf, float *nbuf) {
-#   define V(a,b,c) obuf[0] = (a 1 > 0 ? xb : xa); obuf[1] = (b 1 > 0 ? yb : ya); obuf[2] = (c 1 > 0 ? zb : za); obuf += 3;
-#   define N(a,b,c) for (int i = 0; i < 6; i++) { nbuf[0] = a; nbuf[1] = b; nbuf[2] = c; nbuf += 3; }
+static void cubedim(float xa, float ya, float za, float xb, float yb, float zb, float *vnbuf) {
+	float nx, ny, nz;
+#   define V(a,b,c) vnbuf[0] = (a 1 > 0 ? xb : xa); vnbuf[1] = (b 1 > 0 ? yb : ya); vnbuf[2] = (c 1 > 0 ? zb : za); vnbuf[3] = nx; vnbuf[4] = ny; vnbuf[5] = nz; vnbuf += 6;
+#   define N(a,b,c) nx = a; ny = b; nz = c;
 	N( 1.0, 0.0, 0.0); /* 1 2 4   2 3 4 */
 		V(+,-,+); V(+,-,-); V(+,+,+);
 		V(+,-,-); V(+,+,-); V(+,+,+);
@@ -383,22 +389,22 @@ static void cubedim(float xa, float ya, float za, float xb, float yb, float zb, 
 }
 
 static void dumpVoxels() {
-	float *vbuf = NULL, *nbuf = NULL;
+	float *vnbuf = NULL;
+	vbo_vertcount = 0;
 
 	int pointsDrawn = 0;
 	int cubesDrawn = 0;
 
 	int startz = -1;
 
-	int xm = im_closed->size_x, ym = im_closed->size_y, zm = im_closed->size_z;
+	int xm = im_slots[0]->size_x, ym = im_slots[0]->size_y, zm = im_slots[0]->size_z;
 
 	fprintf(stderr, "Rendering\n");
 
-	#ifndef SIMPLE_CUBE
 	for (int y = 0; y < ym; y++) {
 	for (int x = 0; x < xm; x++) {
 	for (int z = 0; z < zm; z++) {
-		if (binary_at(im_closed, x, y, z)) {
+		if (binary_at(im_slots[0], x, y, z)) {
 			pointsDrawn++;
 			if (startz == -1) {
 				startz = z;
@@ -412,10 +418,10 @@ static void dumpVoxels() {
 				float yb = (float)(y+1);
 				float zb = (float)(z);
 
-				vbuf = realloc(vbuf, (cubesDrawn + 1)*6*2*3*3*sizeof(float));
-				nbuf = realloc(nbuf, (cubesDrawn + 1)*6*2*3*3*sizeof(float));
-				cubedim(xa,ya,za,xb,yb,zb, vbuf + cubesDrawn*6*2*3*3, nbuf + cubesDrawn*6*2*3*3);
+				vnbuf = realloc(vnbuf, 2 * (vbo_vertcount + 6*2*3) * 3 * sizeof(float));
+				cubedim(xa,ya,za,xb,yb,zb, vnbuf + vbo_vertcount * 2 * 3);
 				cubesDrawn++;
+				vbo_vertcount += 6*2*3;
 
 				startz = -1;
 			}
@@ -430,46 +436,25 @@ static void dumpVoxels() {
 		float yb = (float)(y+1);
 		float zb = (float)(zm);
 
-		vbuf = realloc(vbuf, (cubesDrawn + 1)*6*2*3*3*sizeof(float));
-		nbuf = realloc(nbuf, (cubesDrawn + 1)*6*2*3*3*sizeof(float));
-		cubedim(xa,ya,za,xb,yb,zb, vbuf + cubesDrawn*6*2*3*3, nbuf + cubesDrawn*6*2*3*3);
+		vnbuf = realloc(vnbuf, 2 * (vbo_vertcount + 6*2*3) * 3 * sizeof(float));
+		cubedim(xa,ya,za,xb,yb,zb, vnbuf + vbo_vertcount * 2 * 3);
 		cubesDrawn++;
+		vbo_vertcount += 6*2*3;
 		startz = -1;
 	}
 
 	}
 	}
-	#else
-		vbuf = realloc(vbuf, (cubesDrawn + 1)*6*2*3*3*sizeof(float));
-		nbuf = realloc(nbuf, (cubesDrawn + 1)*6*2*3*3*sizeof(float));
-		cubedim(0, 0, 0, xm, ym, zm, vbuf + cubesDrawn*6*2*3*3, nbuf + cubesDrawn*6*2*3*3);
-		cubesDrawn++;
-	#endif
-
-
-	vbo_size = cubesDrawn * 6*2*3;
 
 	glBindBuffer(GL_ARRAY_BUFFER, vbo_id);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * vbo_size * 3, vbuf, GL_STATIC_DRAW); GL_ERROR();
-	#ifdef SIMPLE_CUBE
-	for (int i = 0; i < vbo_size; i++) {
-		fprintf(stderr, "V[%d..] %f %f %f\n", i*3, vbuf[3*i], vbuf[3*i+1], vbuf[3*i+2]);
-	}
-	#endif
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL); GL_ERROR();
+	glBufferData(GL_ARRAY_BUFFER, 2 * vbo_vertcount * 3 * sizeof(float), vnbuf, GL_STATIC_DRAW); GL_ERROR();
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 2*3*sizeof(float), 0); GL_ERROR();
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 2*3*sizeof(float), 3*sizeof(float)); GL_ERROR();
 	glEnableVertexAttribArray(0); GL_ERROR();
-
-	glBindBuffer(GL_ARRAY_BUFFER, vbo_id_n); GL_ERROR();
-	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * vbo_size * 3, nbuf, GL_STATIC_DRAW); GL_ERROR();
-	#ifdef SIMPLE_CUBE
-	for (int i = 0; i < vbo_size; i++) {
-		fprintf(stderr, "N[%d..] %f %f %f\n", i*3, nbuf[3*i], nbuf[3*i+1], nbuf[3*i+2]);
-	}
-	#endif
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, NULL); GL_ERROR();
 	glEnableVertexAttribArray(1); GL_ERROR();
 
-	free(vbuf);
+
+	free(vnbuf);
 
 	fprintf(stderr, "Rendered %7d points in %7d cubes (%7.4f%%)\n", pointsDrawn, cubesDrawn, 100. * cubesDrawn / pointsDrawn);
 }
@@ -551,6 +536,12 @@ static void resizefun(GLFWwindow *win, int width, int height) {
 	glViewport(0, 0, width, height);
 }
 
+static uint64_t getus() {
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return ts.tv_sec * 1000000 + ts.tv_nsec / 1000;
+}
+
 int main() {
 	GLFWwindow *window;
 
@@ -583,12 +574,16 @@ int main() {
 
 	mat4 mat_view, mat_proj;
 	int angle = 0;
-	v4sf cube_center = { im_closed->size_x/2.0f, im_closed->size_y/2.0f, im_closed->size_z/2.0f, 0.0f };
+	v4sf cube_center = { im_slots[0]->size_x/2.0f, im_slots[0]->size_y/2.0f, im_slots[0]->size_z/2.0f, 0.0f };
+
+	uint64_t t1, t2;
 	while (!glfwWindowShouldClose(window)) {
 		angle++;
 		angle %= 360;
 
 		/* Render here */
+		t1 = getus();
+
 		glEnable(GL_CULL_FACE);
 		glEnable(GL_DEPTH_TEST);
 
@@ -618,10 +613,13 @@ int main() {
 		glUniformMatrix4fv(proj_i, 1, GL_FALSE, mat_proj); GL_ERROR();
 		#endif
 
-		glDrawArrays(GL_TRIANGLES, 0, vbo_size);
+		glDrawArrays(GL_TRIANGLES, 0, vbo_vertcount);
 
 		/* Swap front and back buffers */
 		glfwSwapBuffers(window);
+
+		t2 = getus();
+		fprintf(stderr, "took %06dus = %10.5f FPS\r", t2 - t1, 1000000./(t2 - t1));
 
 		/* Poll for and process events */
 		glfwPollEvents();
