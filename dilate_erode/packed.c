@@ -6,10 +6,6 @@
 
 #include <arpa/inet.h> /* ntohl/htonl */
 
-#include "measure.h"
-
-#include <valgrind/callgrind.h>
-
 static void memor_dilate(uint8_t *dst, uint8_t *src, int shift, int len) {
 	memor2(dst, src, src + shift, shift);
 	memor3(dst + shift, src, src + shift, src + 2*shift, len - 2*shift);
@@ -20,15 +16,6 @@ static void memand_erode(uint8_t *dst, uint8_t *src, int shift, int len) {
 	memset(dst, 0x00, shift);
 	memand3(dst + shift, src, src + shift, src + 2*shift, len - 2*shift);
 	memset(dst + len-shift, 0x00, shift);
-}
-
-static struct i3d_packed *like(struct i3d_packed *orig) {
-	struct i3d_packed *tcopy = i3d_packed_new();
-	tcopy->size_x = orig->size_x;
-	tcopy->size_y = orig->size_y;
-	tcopy->size_z = orig->size_z;
-	i3d_packed_alloc(tcopy);
-	return tcopy;
 }
 
 static inline int ceil_div(int num, int den) {
@@ -86,66 +73,50 @@ static void erode1bit(uint8_t *dst, uint8_t *src, size_t len) {
 	}
 }
 
-void dilate_packed(struct i3d_packed *restrict dst, struct i3d_packed *restrict src) {
-	CALLGRIND_START_INSTRUMENTATION;
-	struct i3d_packed *buf = like(src);
+void dilate_packed(restrict packed_t dst, restrict packed_t src) {
+	packed_t buf = packed_like(src);
 
 	/* dst = dilate_x(src) */
-	measure_accum("Dilate","X",{
-		/* greatly abuses the padding before and after packed image data. */
-		dilate1bit(
-			dst->voxels,
-			src->voxels,
-			src->size_z * src->off_z - 4);
-	});
+	/* greatly abuses the padding before and after packed image data. */
+	dilate1bit(
+		dst->voxels,
+		src->voxels,
+		src->size_z * src->off_z - 4);
 
 	/* buf = dilate_y(dst) */
-	measure_accum("Dilate","Y",{
 	for (int z = 0; z < src->size_z; z++) {
 		memor_dilate(
 			buf->voxels + z*src->off_z,
 			dst->voxels + z*src->off_z,
 			src->off_y, src->off_z);
 	}
-	});
 
 	/* dst = dilate_z(buf) */
-	measure_accum("Dilate","Z",{
 	memor_dilate(dst->voxels, buf->voxels, src->off_z, src->size_z * src->off_z);
-	});
 
-	i3d_packed_free(buf);
-	CALLGRIND_STOP_INSTRUMENTATION;
+	packed_free(buf);
 }
 
-void erode_packed(struct i3d_packed *restrict dst, struct i3d_packed *restrict src) {
-	CALLGRIND_START_INSTRUMENTATION;
-	struct i3d_packed *buf = like(src);
+void erode_packed(restrict packed_t dst, restrict packed_t src) {
+	packed_t buf = packed_like(src);
 
 	/* dst = erode_x(src) */
-	measure_accum("Erode","X",{
-		/* greatly abuses the padding before and after packed image data. */
-		erode1bit(
-			dst->voxels,
-			src->voxels,
-			src->size_z * src->off_z - 4);
-	});
+	/* greatly abuses the padding before and after packed image data. */
+	erode1bit(
+		dst->voxels,
+		src->voxels,
+		src->size_z * src->off_z - 4);
 
 	/* buf = erode_y(dst) */
-	measure_accum("Erode","Y",{
 	for (int z = 0; z < src->size_z; z++) {
 		memand_erode(
 			buf->voxels + z*src->off_z,
 			dst->voxels + z*src->off_z,
 			src->off_y, src->off_z);
 	}
-	});
 
 	/* dst = erode_z(buf) */
-	measure_accum("Erode","Z",{
 	memand_erode(dst->voxels, buf->voxels, src->off_z, src->size_z * src->off_z);
-	});
 
-	i3d_packed_free(buf);
-	CALLGRIND_STOP_INSTRUMENTATION;
+	packed_free(buf);
 }

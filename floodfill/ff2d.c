@@ -18,7 +18,44 @@ static inline int memchr_off(const uint8_t *s, uint8_t c, size_t n) {
 	}
 }
 
-void floodfill_ff64(binary_t dst, binary_t the_src, int xs, int ys, int zs) {
+#include <fcntl.h>
+#include <unistd.h>
+static void write_single(binary_t old_im, binary_t new_im, int z, char *fn, int markx, int marky) {
+	int fd = open(fn, O_CREAT | O_WRONLY | O_TRUNC, 0666);
+	if (fd < 0) {
+		perror("write_difference: open");
+		return;
+	}
+
+	FILE *fh = fdopen(fd, "w");
+
+	fprintf(fh, "P6\n%d %d\n255\n", old_im->size_x, old_im->size_y);
+
+	uint8_t
+		c_ins[] = { 0x00, 0xff, 0x00 },
+		c_del[] = { 0xff, 0x00, 0x00 },
+		c_on[]  = { 0xff, 0xff, 0xff },
+		c_off[] = { 0x00, 0x00, 0x00 },
+		c_mark[]= { 0x00, 0x00, 0xff };
+
+	for (int y = 0; y < old_im->size_y; y++) {
+		for (int x = 0; x < old_im->size_x; x++) {
+			uint8_t vold = binary_at(old_im, x, y, z);
+			uint8_t vnew = binary_at(new_im, x, y, z);
+			uint8_t *to_write = vold
+				? (vnew ? c_on  : c_del)
+				: (vnew ? c_ins : c_off);
+			if (markx != x && marky != y) {
+				fwrite(to_write, 3, 1, fh);
+			} else {
+				fwrite(c_mark, 3, 1, fh);
+			}
+		}
+	}
+
+	fclose(fh);
+}
+void floodfill2d(binary_t dst, binary_t the_src, int xs, int ys, int z) {
 	binary_t src;
 	if (dst == the_src) {
 		src = binary_like(the_src);
@@ -29,15 +66,26 @@ void floodfill_ff64(binary_t dst, binary_t the_src, int xs, int ys, int zs) {
 
 	int s_xy = src->off_z;
 
-	uint8_t seed_color = binary_at(src, xs, ys, zs);
+	uint8_t seed_color = binary_at(src, xs, ys, z);
 
 	uint8_t *queue = calloc(s_xy * src->size_z, sizeof(uint8_t));
-	queue[binary_offset(src, xs, ys, zs)] = 0xff;
+	queue[binary_offset(src, xs, ys, z)] = 0xff;
 
-	int cx = xs, cy = ys, cz = zs;
+	int cx = xs, cy = ys, cz = z;
+
+	int file_no = 0;
+
+	binary_t d_q = binary_like(the_src);
+	free(d_q->voxels);
+	d_q->voxels = queue;
 
 	while (1) {
-		if (0 && !i3d_inside(src, cx, cy, cz)) {
+		char fn[80];
+		sprintf(fn, "Idiff/%03d-%03d.pnm", z, file_no);
+		file_no++;
+		//write_single(d_q, dst, z, fn, cx, cy);
+
+		if (!i3d_inside(src, cx, cy, cz)) {
 			fprintf(stderr, "cc out of bounds: %d %d %d. This shouldn't happen.\n", cx, cy, cz);
 			exit(1);
 		}
@@ -79,16 +127,14 @@ void floodfill_ff64(binary_t dst, binary_t the_src, int xs, int ys, int zs) {
 				qp[0] = 0;
 				dp[0] = UINT64_MAX;
 
-				#define maybe_enqueue64(dy,dz) do { \
-					uint64_t *s1p = (uint64_t*)(src->voxels + spos + src->off_y*dy + s_xy*dz); \
-					uint64_t *d1p = (uint64_t*)(dst->voxels + spos + src->off_y*dy + s_xy*dz); \
-					uint64_t *q1p = (uint64_t*)(queue + spos + src->off_y*dy + s_xy*dz); \
+				#define maybe_enqueue64(dy) do { \
+					uint64_t *s1p = (uint64_t*)(src->voxels + spos + src->off_y*dy); \
+					uint64_t *d1p = (uint64_t*)(dst->voxels + spos + src->off_y*dy); \
+					uint64_t *q1p = (uint64_t*)(queue + spos + src->off_y*dy); \
 					q1p[0] |= (~d1p[0] & s1p[0]); \
 				} while (0)
-				if (cy > 0) maybe_enqueue64(-1,0);
-				if (cz > 0) maybe_enqueue64(0,-1);
-				if (cy < src->size_y - 1) maybe_enqueue64(+1,0);
-				if (cz < src->size_z - 1) maybe_enqueue64(0,+1);
+				if (cy > 0) maybe_enqueue64(-1);
+				if (cy < src->size_y - 1) maybe_enqueue64(+1);
 				limit -= 8;
 				spos += 8;
 			}
@@ -104,16 +150,14 @@ void floodfill_ff64(binary_t dst, binary_t the_src, int xs, int ys, int zs) {
 				dp[0] = 0;
 
 				#undef maybe_enqueue64
-				#define maybe_enqueue64(dy,dz) do { \
-					uint64_t *s1p = (uint64_t*)(src->voxels + spos + src->off_y*dy + s_xy*dz); \
-					uint64_t *d1p = (uint64_t*)(dst->voxels + spos + src->off_y*dy + s_xy*dz); \
-					uint64_t *q1p = (uint64_t*)(queue + spos + src->off_y*dy + s_xy*dz); \
+				#define maybe_enqueue64(dy) do { \
+					uint64_t *s1p = (uint64_t*)(src->voxels + spos + src->off_y*dy); \
+					uint64_t *d1p = (uint64_t*)(dst->voxels + spos + src->off_y*dy); \
+					uint64_t *q1p = (uint64_t*)(queue + spos + src->off_y*dy); \
 					q1p[0] |= (~s1p[0] & d1p[0]); \
 				} while (0)
-				if (cy > 0) maybe_enqueue64(-1,0);
-				if (cz > 0) maybe_enqueue64(0,-1);
-				if (cy < src->size_y - 1) maybe_enqueue64(+1,0);
-				if (cz < src->size_z - 1) maybe_enqueue64(0,+1);
+				if (cy > 0) maybe_enqueue64(-1);
+				if (cy < src->size_y - 1) maybe_enqueue64(+1);
 				limit -= 8;
 				spos += 8;
 			}
@@ -125,16 +169,14 @@ void floodfill_ff64(binary_t dst, binary_t the_src, int xs, int ys, int zs) {
 		) {
 			dst->voxels[spos] = seed_color;
 			queue[spos] = 0;
-			#define maybe_enqueue(dy,dz) do { \
-				int loloff = spos + dy*src->off_y + dz*s_xy; \
+			#define maybe_enqueue(dy) do { \
+				int loloff = spos + dy*src->off_y; \
 				if (src->voxels[loloff] == seed_color && dst->voxels[loloff] != seed_color) { \
 					queue[loloff] = 0xff; \
 				} \
 			} while (0)
-			if (cy > 0) maybe_enqueue(-1,0);
-			if (cz > 0) maybe_enqueue(0,-1);
-			if (cy < src->size_y - 1) maybe_enqueue(+1,0);
-			if (cz < src->size_z - 1) maybe_enqueue(0,+1);
+			if (cy > 0) maybe_enqueue(-1);
+			if (cy < src->size_y - 1) maybe_enqueue(+1);
 			spos++;
 			limit--;
 		}
@@ -146,7 +188,6 @@ void floodfill_ff64(binary_t dst, binary_t the_src, int xs, int ys, int zs) {
 		 * - current line
 		 * - following lines on same z
 		 * - previous lines on same z
-		 * - all z layers, starting with the one below, going up, wrapping around
 		 */
 
 		/* look on current line */
@@ -155,40 +196,12 @@ void floodfill_ff64(binary_t dst, binary_t the_src, int xs, int ys, int zs) {
 			continue;
 		}
 
-		/* look on the following lines (if there are any) */
-		int zstart = binary_offset(src, 0, 0, cz);
-		if (cy + 1 < src->size_y) {
-			int offs = memchr_off(queue + zstart + (cy+1)*src->off_y, 0xff, src->off_y * (src->size_y - (cy+1)));
-			if (offs != -1) {
-				cx = offs % src->off_y;
-				cy = offs / src->off_y + (cy+1);
-				continue;
-			}
+		int offs = memchr_off(queue + cz*src->off_z, 0xff, src->off_y * src->size_y);
+		if (offs != -1) {
+			cx = offs % src->off_y;
+			cy = offs / src->off_y;
+			continue;
 		}
-
-		/* try on the lines before */
-		if (cy > 0) {
-			int offs = memchr_off(queue + zstart, 0xff, src->off_y * (cy-1));
-			if (offs != -1) {
-				cx = offs % src->off_y;
-				cy = offs / src->off_y;
-				continue;
-			}
-		}
-
-		/* still not found, scan all the z now */
-		int found = 0;
-		for (int cz1 = mod(cz - 1, src->size_z); cz1 != mod(cz-2,src->size_z) && !found; cz1 = (cz1 + 1) % src->size_z) {
-			if (cz1 == cz) { continue; }
-			int offs = memchr_off(queue + cz1 * s_xy, 0xff, s_xy);
-			if (offs != -1) {
-				cx = offs % src->off_y;
-				cy = offs / src->off_y;
-				cz = cz1;
-				found = 1; break;
-			}
-		}
-		if (found) { continue; }
 
 		/* still not found. so... queue empty \o/ */
 		break;

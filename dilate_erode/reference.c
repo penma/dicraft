@@ -6,19 +6,19 @@
  * and this makes it slow.
  */
 
-static void dilate_single(struct i3d_binary *restrict dst, struct i3d_binary *restrict src, int x, int y, int z) {
+static void dilate_single(restrict binary_t dst, restrict binary_t src, int x, int y, int z) {
 	int set = 0;
 	for (int zo = -1; zo <= +1; zo++) {
 	for (int yo = -1; yo <= +1; yo++) {
 	for (int xo = -1; xo <= +1; xo++) {
 		if (i3d_inside(src, x+xo, y+yo, z+zo)) {
-			if (i3d_binary_at(src, x+xo, y+yo, z+zo)) {
+			if (binary_at(src, x+xo, y+yo, z+zo)) {
 				set = 1;
 				break;
 			}
 		}
 	}}}
-	i3d_binary_at(dst, x, y, z) = set ? 0xff : 0x00;
+	binary_at(dst, x, y, z) = set ? 0xff : 0x00;
 }
 
 #define svb src->voxels
@@ -28,13 +28,13 @@ static void dilate_single(struct i3d_binary *restrict dst, struct i3d_binary *re
  * which allows skipping most of the coordinate bound checks.
  * afterwards they are filled in.
  */
-void dilate_reference(struct i3d_binary *restrict dst, struct i3d_binary *restrict src) {
+void dilate_reference(restrict binary_t dst, restrict binary_t src) {
 	int dy = src->off_y;
 	int dz = src->off_z;
 	for (int z = 0; z < src->size_z; z++) {
 		for (int y = 1; y < src->size_y - 1; y++) {
 			for (int x = 1; x < src->size_x - 1; x++) {
-				int base = i3d_binary_offset(src, x, y, z-1);
+				int base = binary_offset(src, x, y, z-1);
 				int set = 0;
 
 				for (int zo = -1; zo <= +1; zo++) {
@@ -50,7 +50,7 @@ void dilate_reference(struct i3d_binary *restrict dst, struct i3d_binary *restri
 					base += dz;
 				}
 
-				i3d_binary_at(dst, x, y, z) = set ? 0xff : 0x00;
+				binary_at(dst, x, y, z) = set ? 0xff : 0x00;
 			}
 		}
 
@@ -79,13 +79,13 @@ void dilate_reference(struct i3d_binary *restrict dst, struct i3d_binary *restri
  * many times so it connects to the image border, then subsequent erosion would
  * not remove the connection to the border.
  */
-void erode_reference(struct i3d_binary *restrict dst, struct i3d_binary *restrict src) {
+void erode_reference(restrict binary_t dst, restrict binary_t src) {
 	int dy = src->off_y;
 	int dz = src->off_z;
 	for (int z = 0; z < src->size_z; z++) {
 		for (int y = 1; y < src->size_y - 1; y++) {
 			for (int x = 1; x < src->size_x - 1; x++) {
-				int base = i3d_binary_offset(src, x, y, z-1);
+				int base = binary_offset(src, x, y, z-1);
 				int set = 1;
 
 				for (int zo = -1; zo <= +1; zo++) {
@@ -99,18 +99,18 @@ void erode_reference(struct i3d_binary *restrict dst, struct i3d_binary *restric
 					base += dz;
 				}
 
-				i3d_binary_at(dst, x, y, z) = set ? 0xff : 0x00;
+				binary_at(dst, x, y, z) = set ? 0xff : 0x00;
 			}
 		}
 		/* the fugly borders */
 		for (int y = 0; y < src->size_y; y += src->size_y - 1) {
 			for (int x = 0; x < src->size_x; x++) {
-				i3d_binary_at(dst, x, y, z) = 0;
+				binary_at(dst, x, y, z) = 0;
 			}
 		}
 		for (int x = 0; x < src->size_x; x += src->size_x - 1) {
 			for (int y = 0; y < src->size_y; y++) {
-				i3d_binary_at(dst, x, y, z) = 0;
+				binary_at(dst, x, y, z) = 0;
 			}
 		}
 	}

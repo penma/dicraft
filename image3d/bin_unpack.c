@@ -11,7 +11,7 @@
 
 /* TODO dieser Code benutzt an vielen Stellen noch xsize statt yoff... */
 
-void i3d_pack_binary(struct i3d_packed *packed, struct i3d_binary *bin) {
+void pack_binary(restrict packed_t packed, restrict binary_t bin) {
 	int xsize = packed->size_x, ysize = packed->size_y, zsize = packed->size_z;
 	int b_yoff = bin->off_y, b_zoff = bin->off_z;
 	int p_yoff = packed->off_y, p_zoff = packed->off_z;
@@ -36,7 +36,7 @@ void i3d_pack_binary(struct i3d_packed *packed, struct i3d_binary *bin) {
 	}
 }
 
-static void unpack_n(struct i3d_binary *bin, struct i3d_packed *packed) {
+static void unpack_n(restrict binary_t bin, restrict packed_t packed) {
 	int xsize = packed->size_x, ysize = packed->size_y, zsize = packed->size_z;
 	int p_yoff = packed->off_y, p_zoff = packed->off_z;
 	memset(bin->voxels, 0x00, zsize * bin->off_z);
@@ -44,7 +44,7 @@ static void unpack_n(struct i3d_binary *bin, struct i3d_packed *packed) {
 		for (int y = 0; y < ysize; y++) {
 			for (int x = 0; x < xsize; x++) {
 				if (packed->voxels[x/8 + y*p_yoff + z*p_zoff] & (1 << (8 - 1 - x%8))) {
-					i3d_binary_at(bin, x, y, z) = 0xff;
+					binary_at(bin, x, y, z) = 0xff;
 				}
 			}
 		}
@@ -57,7 +57,7 @@ static void unpack_n(struct i3d_binary *bin, struct i3d_packed *packed) {
 
 #include <mmintrin.h>
 
-static void unpack_mmx(struct i3d_binary *restrict bin, struct i3d_packed *restrict packed) {
+static void unpack_mmx(restrict binary_t bin, restrict packed_t packed) {
 	int xsize = packed->size_x, ysize = packed->size_y, zsize = packed->size_z;
 	int b_yoff = bin->off_y, b_zoff = bin->off_z;
 	int p_yoff = packed->off_y, p_zoff = packed->off_z;
@@ -91,7 +91,7 @@ static void unpack_mmx(struct i3d_binary *restrict bin, struct i3d_packed *restr
 
 #endif
 
-static void (*resolve_unpack(void))(struct i3d_binary *, struct i3d_packed *) {
+static void (*resolve_unpack(void))(restrict binary_t, restrict packed_t) {
 #ifdef X86OID
 	__builtin_cpu_init();
 	if (__builtin_cpu_supports("mmx")) {
@@ -104,5 +104,5 @@ static void (*resolve_unpack(void))(struct i3d_binary *, struct i3d_packed *) {
 #endif
 }
 
-void i3d_unpack_binary(struct i3d_binary *, struct i3d_packed *) __attribute__ ((ifunc("resolve_unpack")));
+void unpack_binary(restrict binary_t, restrict packed_t) __attribute__ ((ifunc("resolve_unpack")));
 

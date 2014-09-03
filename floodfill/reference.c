@@ -12,7 +12,7 @@ struct pts3d {
 	int len;
 };
 
-static void pt_enqueue(struct pts3d *pts, struct i3d_binary *im, int px, int py, int pz) {
+static void pt_enqueue(struct pts3d *pts, binary_t im, int px, int py, int pz) {
 	if (i3d_inside(im, px, py, pz)) {
 		struct pt3d *p = pts->a + pts->len;
 		if (pts->len >= im->size_x * im->size_y * im->size_z * 4) {
@@ -30,8 +30,8 @@ static void pt_enqueue(struct pts3d *pts, struct i3d_binary *im, int px, int py,
 	}
 }
 
-void floodfill_reference(struct i3d_binary *dst, struct i3d_binary *src, int xs, int ys, int zs) {
-	uint8_t leColor = i3d_binary_at(src, xs, ys, zs);
+void floodfill_reference(binary_t dst, binary_t src, int xs, int ys, int zs) {
+	uint8_t leColor = binary_at(src, xs, ys, zs);
 	struct pts3d pts;
 	pts.a = calloc(src->size_x * src->size_y * src->size_z * 4, sizeof(struct pt3d));
 	pts.len = 0;
@@ -43,7 +43,7 @@ void floodfill_reference(struct i3d_binary *dst, struct i3d_binary *src, int xs,
 		struct pt3d *p = pts.a + pts.len;
 		int px = p->x, py = p->y, pz = p->z;
 
-		int off = i3d_binary_offset(src, px, py, pz);
+		int off = binary_offset(src, px, py, pz);
 		if (src->voxels[off] == leColor && dst->voxels[off] != leColor) {
 			dst->voxels[off] = leColor;
 			pt_enqueue(&pts, src, px - 1, py, pz);

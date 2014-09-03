@@ -5,7 +5,7 @@
 
 #include "image3d/i3d.h"
 
-struct i3d_packed {
+typedef struct packed {
 	enum i3d_type type; /* I3D_PACKED */
 	int size_x, size_y, size_z;
 	int off_y;
@@ -14,10 +14,12 @@ struct i3d_packed {
 
 	/* actual pointer to free-able memory. */
 	uint8_t *restrict _actual_voxels;
-};
+} *packed_t;
 
-struct i3d_packed *i3d_packed_new();
-void i3d_packed_alloc(struct i3d_packed *);
-void i3d_packed_free(struct i3d_packed *);
+packed_t packed_new();
+void packed_alloc(packed_t);
+void packed_free(packed_t);
+packed_t _packed_like(struct i3d *im);
+#define packed_like(im) _packed_like((struct i3d *)(im))
 
 #endif

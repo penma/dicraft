@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-struct i3d_grayscale *load_dicom_dir(const char *);
+grayscale_t load_dicom_dir(const char *);
 
 #ifdef __cplusplus
 }

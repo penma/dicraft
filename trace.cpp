@@ -179,7 +179,7 @@ static void push_quad(struct tris *tris,
  * extruded 3d triangles
  *
  */
-void trace_layer(struct tris *tris, struct i3d_binary *src, const int z) {
+void trace_layer(struct tris *tris, binary_t src, const int z) {
 	/* trace the slice with potrace */
 	potrace_param_t *param = potrace_param_default();
 	potrace_bitmap_t *bm = static_cast<potrace_bitmap_t*>(malloc(sizeof(potrace_bitmap_t)));
@@ -193,7 +193,7 @@ void trace_layer(struct tris *tris, struct i3d_binary *src, const int z) {
 
 	for (int y = 0; y < bm->h; y++) {
 		for (int x = 0; x < bm->w; x++) {
-			if (i3d_binary_at(src, x, y, z)) {
+			if (binary_at(src, x, y, z)) {
 				bm->map[y * bm->dy + x/N] |= ((potrace_word)1 << (N - 1 - x%N));
 			}
 		}

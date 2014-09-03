@@ -3,8 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-struct i3d_grayscale *i3d_grayscale_new() {
-	struct i3d_grayscale *im = malloc(sizeof(struct i3d_grayscale));
+grayscale_t grayscale_new() {
+	grayscale_t im = malloc(sizeof(struct grayscale));
 	im->size_x = 0; im->size_y = 0; im->size_z = 0;
 	im->off_y = -1; im->off_z = -1;
 	im->type = I3D_GRAYSCALE;
@@ -12,13 +12,13 @@ struct i3d_grayscale *i3d_grayscale_new() {
 	return im;
 }
 
-void i3d_grayscale_alloc(struct i3d_grayscale *im) {
+void grayscale_alloc(grayscale_t im) {
 	im->off_y = im->size_x;
 	im->off_z = im->size_y * im->off_y;
 	im->voxels = calloc(im->size_z * im->off_z, sizeof(uint16_t));
 }
 
-void i3d_grayscale_free(struct i3d_grayscale *im) {
+void grayscale_free(grayscale_t im) {
 	free(im->voxels);
 	free(im);
 }

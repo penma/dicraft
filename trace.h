@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 
-void trace_layer(struct tris *, struct i3d_binary *, const int);
+void trace_layer(struct tris *, binary_t, const int);
 
 #ifdef __cplusplus
 }

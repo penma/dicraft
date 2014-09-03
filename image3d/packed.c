@@ -4,8 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-struct i3d_packed *i3d_packed_new() {
-	struct i3d_packed *im = malloc(sizeof(struct i3d_packed));
+packed_t packed_new() {
+	packed_t im = malloc(sizeof(struct packed));
 	im->size_x = 0; im->size_y = 0; im->size_z = 0;
 	im->off_y = -1; im->off_z = -1;
 	im->type = I3D_PACKED;
@@ -21,8 +21,7 @@ static inline int to_mult(int v, int m) {
 	return ceil_div(v, m) * m;
 }
 
-
-void i3d_packed_alloc(struct i3d_packed *im) {
+void packed_alloc(packed_t im) {
 	/* TODO: document the purpose etc of the padding */
 	im->off_y = to_mult(ceil_div(im->size_x, 8), 4) + 4;
 	im->off_z = im->size_y * im->off_y;
@@ -30,14 +29,23 @@ void i3d_packed_alloc(struct i3d_packed *im) {
 	im->voxels = im->_actual_voxels + 4;
 }
 
-void i3d_packed_free(struct i3d_packed *im) {
+void packed_free(packed_t im) {
 	free(im->_actual_voxels);
 	free(im);
 }
 
+packed_t _packed_like(struct i3d *im) {
+	packed_t pack = packed_new();
+	pack->size_x = im->size_x;
+	pack->size_y = im->size_y;
+	pack->size_z = im->size_z;
+	packed_alloc(pack);
+	return pack;
+}
+
 #include <stdio.h>
 
-void i3d_packed_good(struct i3d_packed *im, char *name) {
+void packed_good(packed_t im, char *name) {
 	int found = 0;
 
 	if (im->voxels - im->_actual_voxels != 4) {
@@ -72,7 +80,5 @@ void i3d_packed_good(struct i3d_packed *im, char *name) {
 	if (!found) {
 		fprintf(stderr, "%p/%s OK\n", im, name);
 	}
-
-
 }
 

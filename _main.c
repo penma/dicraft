@@ -5,6 +5,7 @@
 #include "image3d/grayscale.h"
 #include "image3d/packed.h"
 #include "image3d/bin_unpack.h"
+#include "image3d/threshold.h"
 #include "load_dcm.h"
 #include "trace.h"
 #include "tri.h"
@@ -18,13 +19,16 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include "floodfill/ff64.h"
+#include "floodfill/isolate.h"
+
 #include "makesolid.h"
 #include "measure.h"
 
 #include "opencl/raycast.h"
 
 #define _ii3d_check_difference(a,b) do { \
-	struct i3d_binary *__ma_a = (a), *__ma_b = (b); \
+	binary_t __ma_a = (a), __ma_b = (b); \
 	fprintf(stderr, "Images %s and %s %s\n", \
 		#a, \
 		#b, \
@@ -37,7 +41,6 @@
 #define extern_floodfill(name) extern void name(struct i3d *, struct i3d *, int, int, int);
 #define extern_xform(name) extern void name(struct i3d *, struct i3d *);
 
-extern_floodfill(floodfill_ff64)
 extern_floodfill(floodfill_reference)
 extern_xform(dilate_packed);
 extern_xform( erode_packed);
@@ -46,21 +49,12 @@ extern_xform( erode_unpacked);
 extern_xform(dilate_reference);
 extern_xform( erode_reference);
 
-static struct i3d_packed *like_packed(struct i3d_binary *orig) {
-	struct i3d_packed *tcopy = i3d_packed_new();
-	tcopy->size_x = orig->size_x;
-	tcopy->size_y = orig->size_y;
-	tcopy->size_z = orig->size_z;
-	i3d_packed_alloc(tcopy);
-	return tcopy;
-}
+static void dilate_times(binary_t im_out, binary_t im_in, int n) {
+	packed_t p0, p1, swap_tmp;
+	p0 = packed_like(im_in);
+	p1 = packed_like(im_in);
 
-static void dilate_times(struct i3d_binary *im_out, struct i3d_binary *im_in, int n) {
-	struct i3d_packed *p0, *p1, *swap_tmp;
-	p0 = like_packed(im_in);
-	p1 = like_packed(im_in);
-
-	i3d_pack_binary(p0, im_in);
+	pack_binary(p0, im_in);
 
 	for (int i = 0; i < n; i++) {
 		swap_tmp = p0;
@@ -70,61 +64,57 @@ static void dilate_times(struct i3d_binary *im_out, struct i3d_binary *im_in, in
 		dilate_packed((struct i3d *)p0, (struct i3d *)p1);
 	}
 
-	i3d_unpack_binary(im_out, p0);
+	unpack_binary(im_out, p0);
 
-	i3d_packed_free(p0);
-	i3d_packed_free(p1);
+	packed_free(p0);
+	packed_free(p1);
+}
+
+static void erode_times(binary_t im_out, binary_t im_in, int n) {
+	packed_t p0, p1, swap_tmp;
+	p0 = packed_like(im_in);
+	p1 = packed_like(im_in);
+
+	pack_binary(p0, im_in);
+
+	for (int i = 0; i < n; i++) {
+		swap_tmp = p0;
+		p0 = p1;
+		p1 = swap_tmp;
+
+		erode_packed((struct i3d *)p0, (struct i3d *)p1);
+	}
+
+	unpack_binary(im_out, p0);
+
+	packed_free(p0);
+	packed_free(p1);
 }
 
 int main() {
-
 	//char *dicomdir = "/home/penma/dicom-foo/3DPrint_DICOM/001 Anatomie UK Patient 1/DVT UK Patient 1";
 	//uint16_t threshold = 1700;
 	char *dicomdir = "/home/penma/dicom-foo/3DPrint_DICOM/003 Anatomie UK Patient 2/DVT UK Patient 2";
-	uint16_t threshold = 1700;
+	uint16_t tv = 1700;
 
-	fprintf(stderr, "Loading images from %s", dicomdir);
-	struct i3d_grayscale *im_dicom = load_dicom_dir(dicomdir);
-	fprintf(stderr, ".\n");
+	grayscale_t im_dicom = load_dicom_dir(dicomdir);
 
-	/* threshold */
-	struct i3d_binary *im_bin = i3d_binary_new();
-	im_bin->size_x = im_dicom->size_x;
-	im_bin->size_y = im_dicom->size_y;
-	im_bin->size_z = im_dicom->size_z;
-	i3d_binary_alloc(im_bin);
+	binary_t im_bin = binary_like(im_dicom);
+	threshold(im_bin, im_dicom, tv);
+	grayscale_free(im_dicom);
 
-	fprintf(stderr, "Thresholding @ %d", threshold);
-	//#pragma omp parallel for
-	for (int z = 0; z < im_bin->size_z; z++) {
-	for (int y = 0; y < im_bin->size_y; y++) {
-	for (int x = 0; x < im_bin->size_x; x++) {
-		int off = i3d_binary_offset(im_bin, x, y, z);
-		if (im_dicom->voxels[x + y*im_dicom->off_y + z*im_dicom->off_z] >= threshold) {
-			im_bin->voxels[off] = 0xff;
-		} else {
-			im_bin->voxels[off] = 0x00;
-		}
-	}}}
-	fprintf(stderr, ".\n");
-
-	i3d_grayscale_free(im_dicom);
-
-	struct i3d_binary *tmp = i3d_binary_new();
-	tmp->size_x = im_bin->size_x;
-	tmp->size_y = im_bin->size_y;
-	tmp->size_z = im_bin->size_z;
-	i3d_binary_alloc(tmp);
-
-	memcpy(tmp->voxels, im_bin->voxels, im_bin->off_z * im_bin->size_z);
-	memset(im_bin->voxels, 0x00, im_bin->off_z * im_bin->size_z);
-	floodfill_ff64((struct i3d *)im_bin, (struct i3d *)tmp, im_bin->size_x/2, 120, 20);
+	isolate(im_bin, im_bin, im_bin->size_x/2, 120, 20);
 
 	/* close along lines in xy */
-	#if 0
+	/*
 	int close_lines[][4] = {
 		{ 7, 274, 55, 324 },
 		{ 393, 327, 447, 284 }
+	};
+	*/
+	int close_lines[][4] = {
+		{ 34, 322, 95, 357 },
+		{ 376, 357, 430, 322 }
 	};
 	int num_close_lines = 2;
 
@@ -145,7 +135,7 @@ int main() {
 			for (int di = 0; di < dp2; di++) {
 				c1x = p1x + dx*(float)di/dp2;
 				c1y = p1y + dy*(float)di/dp2;
-				if (i3d_binary_at(im_bin, c1x, c1y, z)) {
+				if (binary_at(im_bin, c1x, c1y, z)) {
 					c1x = p1x + dx * (float)(di + 3)/dp2;
 					c1y = p1y + dy * (float)(di + 3)/dp2;
 					found1 = 1;
@@ -157,7 +147,7 @@ int main() {
 			for (int di = 0; di < dp2; di++) {
 				c2x = p2x - dx*(float)di/dp2;
 				c2y = p2y - dy*(float)di/dp2;
-				if (i3d_binary_at(im_bin, c2x, c2y, z)) {
+				if (binary_at(im_bin, c2x, c2y, z)) {
 					c2x = p2x - dx * (float)(di + 3)/dp2;
 					c2y = p2y - dy * (float)(di + 3)/dp2;
 					found2 = 1;
@@ -175,58 +165,16 @@ int main() {
 
 					for (int fy = -1; fy <= +1; fy++) {
 						for (int fx = -1; fx <= +1; fx++) {
-							i3d_binary_at(im_bin, ex+fx, ey+fy, z) = 0xff;
+							binary_at(im_bin, ex+fx, ey+fy, z) = 0xff;
 						}
 					}
 				}
 			}
 		}
 	}
-	#endif
 
-	/*
-	struct i3d_binary *d_inner = i3d_binary_new();
-	d_inner->size_x = im_bin->size_x;
-	d_inner->size_y = im_bin->size_y;
-	d_inner->size_z = im_bin->size_z;
-	i3d_binary_alloc(d_inner);
 
-	struct i3d_binary *d_outer = i3d_binary_new();
-	d_outer->size_x = im_bin->size_x;
-	d_outer->size_y = im_bin->size_y;
-	d_outer->size_z = im_bin->size_z;
-	i3d_binary_alloc(d_outer);
-
-	dilate_times(tmp, im_bin, 11);
-	memset(d_inner->voxels, 0xff, im_bin->off_z * im_bin->size_z);
-	floodfill_ff64((struct i3d *)d_inner, (struct i3d *)tmp, 0, 0, 0);
-
-	dilate_times(d_outer, d_inner, 4);
-
-	struct i3d_binary *d_check = i3d_binary_new();
-	d_check->size_x = im_bin->size_x;
-	d_check->size_y = im_bin->size_y;
-	d_check->size_z = im_bin->size_z;
-	i3d_binary_alloc(d_check);
-
-	for (int z = 0; z < im_bin->size_z; z++) {
-	for (int y = 0; y < im_bin->size_y; y++) {
-	for (int x = 0; x < im_bin->size_x; x++) {
-		uint8_t vinner = i3d_binary_at(d_inner, x, y, z);
-		uint8_t vouter = i3d_binary_at(d_outer, x, y, z);
-		uint8_t vimage = i3d_binary_at(im_bin, x, y, z);
-		if (!vimage && vinner) {
-			i3d_binary_at(d_check, x, y, z) = 0xff;
-		}
-	}}} */
-
-	/*
-	memcpy(tmp->voxels, im_rc->voxels, im_bin->off_z * im_bin->size_z);
-	memset(im_rc->voxels, 0xff, im_bin->off_z * im_bin->size_z);
-	floodfill_ff64((struct i3d *)im_rc, (struct i3d *)tmp, 0, 0, 0);
-	*/
-	//write_difference(im_bin, d_check, "Idiff/");
-	//exit(0);
+#if 0
 
 #define DO_UNPACKED
 
@@ -245,7 +193,7 @@ int main() {
 #endif
 
 #ifdef DO_UNPACKED
-	struct i3d_binary *closed_up = close_holes_with((struct close_holes_params){
+	binary_t closed_up = close_holes_with((struct close_holes_params){
 		.image = im_bin,
 		.algo_name = "Unpacked (Ref)",
 		ch_dilate_f(dilate_unpacked, 0),
@@ -261,7 +209,7 @@ int main() {
 #endif
 #endif
 
-	struct i3d_binary *closed_p = close_holes_with((struct close_holes_params){
+	binary_t closed_p = close_holes_with((struct close_holes_params){
 		.image = im_bin,
 		.algo_name = "Packed",
 		ch_dilate_f(dilate_packed, 1),
@@ -287,7 +235,36 @@ int main() {
 	write_difference(closed_p, closed_up, "Idiff/");
 #endif
 
-	write_difference(im_bin, im_bin, "Iwat/");
+#endif
+	binary_t insides = binary_like(im_bin);
+
+	binary_t closed = binary_like(im_bin);
+	memcpy(closed->voxels, im_bin->voxels, im_bin->off_z * im_bin->size_z);
+
+	/* heavy hole-closing 0-109 */
+	dilate_times(insides, im_bin, 10);
+	remove_bubbles(insides, insides, 0, 0, 0);
+	erode_times(insides, insides, 12);
+	memor2(closed->voxels, im_bin->voxels, insides->voxels, im_bin->off_z * 110);
+
+	/* weaker hole-closing 110-124 */
+	dilate_times(insides, im_bin, 5);
+	remove_bubbles(insides, insides, 0, 0, 0);
+	erode_times(insides, insides, 7);
+	memor2(closed->voxels + im_bin->off_z * 110, im_bin->voxels + im_bin->off_z * 110, insides->voxels + im_bin->off_z * 110, im_bin->off_z * (125 - 110));
+
+	/* 2d-hole-closing 1-109 */
+	binary_t _tm0 = binary_like(im_bin);
+	for (int z = 1; z < 110; z++) {
+		memcpy(_tm0->voxels + z * _tm0->off_z, closed->voxels + z * _tm0->off_z, _tm0->off_z);
+		memset(closed->voxels + z * _tm0->off_z, 0xff, _tm0->off_z);
+		floodfill2d(closed, _tm0, 0, 0, z);
+	}
+	binary_free(_tm0);
+
+	remove_bubbles(closed, closed, 0, 0, 0);
+
+	write_difference(im_bin, closed, "Iwat/");
 
 	/*
 	struct tris **tris = malloc(sizeof(struct tris *) * im_bin->size_z);
@@ -306,5 +283,5 @@ int main() {
 	free(tris);
 	*/
 
-	i3d_binary_free(im_bin);
+	binary_free(im_bin);
 }

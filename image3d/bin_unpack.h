@@ -4,7 +4,7 @@
 #include "image3d/binary.h"
 #include "image3d/packed.h"
 
-void i3d_pack_binary(struct i3d_packed *, struct i3d_binary *);
-void i3d_unpack_binary(struct i3d_binary *, struct i3d_packed *);
+void pack_binary(packed_t, binary_t);
+void unpack_binary(binary_t, packed_t);
 
 #endif

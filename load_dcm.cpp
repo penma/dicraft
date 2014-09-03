@@ -15,7 +15,7 @@
 
 using namespace std;
 
-static int load_single_image(const char *fn, struct i3d_grayscale *target, const int z) {
+static int load_single_image(const char *fn, grayscale_t target, const int z) {
 	/* ignored if called multiple times */
 	DJDecoderRegistration::registerCodecs(EDC_photometricInterpretation);
 
@@ -110,11 +110,11 @@ static int dcm_dimensions(const char *fn, int *pwidth, int *pheight) {
 	return 1;
 }
 
-struct i3d_grayscale *load_dicom_dir(const char *dn) {
+grayscale_t load_dicom_dir(const char *dn) {
 	int fnmaxlen = strlen(dn) + 20; /* should suffice.. */
 	char fn[fnmaxlen];
 
-	struct i3d_grayscale *im = i3d_grayscale_new();
+	grayscale_t im = grayscale_new();
 
 	/* find out number of layers (z size) */
 	while (1) {
@@ -135,10 +135,9 @@ struct i3d_grayscale *load_dicom_dir(const char *dn) {
 	dcm_dimensions(fn, &im->size_x, &im->size_y);
 
 	/* allocate all the memory! */
-	i3d_grayscale_alloc(im);
+	grayscale_alloc(im);
 
 	/* now we can load all images */
-	#pragma omp parallel for private(fn)
 	for (int z = 0; z < im->size_z; z++) {
 		snprintf(fn, fnmaxlen, "%s/3DSlice%d.dcm", dn, z+1);
 		load_single_image(fn, im, z);

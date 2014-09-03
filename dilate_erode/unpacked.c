@@ -20,17 +20,8 @@ static void memand_erode(uint8_t *dst, uint8_t *src, int shift, int len) {
 	memset(dst + len - shift, 0x00, shift);
 }
 
-static struct i3d_binary *like(struct i3d_binary *orig) {
-	struct i3d_binary *tcopy = i3d_binary_new();
-	tcopy->size_x = orig->size_x;
-	tcopy->size_y = orig->size_y;
-	tcopy->size_z = orig->size_z;
-	i3d_binary_alloc(tcopy);
-	return tcopy;
-}
-
-void dilate_unpacked(struct i3d_binary *restrict dst, struct i3d_binary *restrict src) {
-	struct i3d_binary *buf = like(src);
+void dilate_unpacked(restrict binary_t dst, restrict binary_t src) {
+	binary_t buf = binary_like(src);
 
 	/* dst = dilate_x(src) */
 	for (int z = 0; z < src->size_z; z++) {
@@ -53,11 +44,11 @@ void dilate_unpacked(struct i3d_binary *restrict dst, struct i3d_binary *restric
 	/* dst = dilate_z(buf) */
 	memor_dilate(dst->voxels, buf->voxels, src->off_z, src->size_z * src->off_z);
 
-	i3d_binary_free(buf);
+	binary_free(buf);
 }
 
-void erode_unpacked(struct i3d_binary *restrict dst, struct i3d_binary *restrict src) {
-	struct i3d_binary *buf = like(src);
+void erode_unpacked(restrict binary_t dst, restrict binary_t src) {
+	binary_t buf = binary_like(src);
 
 	/* dst = erode_x(src) */
 	for (int z = 0; z < src->size_z; z++) {
@@ -80,6 +71,6 @@ void erode_unpacked(struct i3d_binary *restrict dst, struct i3d_binary *restrict
 	/* dst = erode_z(buf) */
 	memand_erode(dst->voxels, buf->voxels, src->off_z, src->size_z * src->off_z);
 
-	i3d_binary_free(buf);
+	binary_free(buf);
 }
 
