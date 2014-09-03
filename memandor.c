@@ -49,6 +49,32 @@ void memor2(U8P dst, U8P p1, U8P p2, size_t len) {
 	}
 }
 
+void memand2(U8P dst, U8P p1, U8P p2, size_t len) {
+	uint32_t *d1 = (U32P)p1, *d2 = (U32P)p2, *dd = (U32P)dst;
+	for (size_t n = 0; n < (len/4 & ~0b11); n += 4) {
+		dd[n+0] = d1[n+0] & d2[n+0];
+		dd[n+1] = d1[n+1] & d2[n+1];
+		dd[n+2] = d1[n+2] & d2[n+2];
+		dd[n+3] = d1[n+3] & d2[n+3];
+	}
+	for (size_t n = len & ~(0b1111); n < len; n++) {
+		dst[n] = p1[n] & p2[n];
+	}
+}
+
+void memandnot2(U8P dst, U8P p1, U8P p2, size_t len) {
+	uint32_t *d1 = (U32P)p1, *d2 = (U32P)p2, *dd = (U32P)dst;
+	for (size_t n = 0; n < (len/4 & ~0b11); n += 4) {
+		dd[n+0] = d1[n+0] & ~d2[n+0];
+		dd[n+1] = d1[n+1] & ~d2[n+1];
+		dd[n+2] = d1[n+2] & ~d2[n+2];
+		dd[n+3] = d1[n+3] & ~d2[n+3];
+	}
+	for (size_t n = len & ~(0b1111); n < len; n++) {
+		dst[n] = p1[n] & ~p2[n];
+	}
+}
+
 /* Slightly faster implementation with SSE2.
  * (~20%, tested on Ivy Bridge)
  */

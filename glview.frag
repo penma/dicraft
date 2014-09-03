@@ -6,6 +6,7 @@ in vec3 VerNor;
 varying vec3 normal, normalCamspace;
 
 uniform mat4 mat_proj, mat_view;
+uniform vec4 color;
 
 void main() {
 	gl_FragColor = vec4(vec3(clamp(
@@ -16,6 +17,6 @@ void main() {
 		0.5 * clamp(
 			dot(normalCamspace, vec3(0.0, 0.0, 1.0))
 		, 0.0, 1.0)
-	, 0.0, 1.0)), 1.0);
+	, 0.0, 1.0)), 1.0) * color;
 }
 

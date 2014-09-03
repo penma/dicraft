@@ -1,6 +1,3 @@
-//#define FIXED_PL
-//#define SIMPLE_CUBE
-
 #define _GNU_SOURCE
 
 #include "image3d/i3d.h"
@@ -236,13 +233,12 @@ static void rebinarize() {
 		}
 	}
 
-	#ifdef SIMPLE_CUBE
-	im_closed = binary_like(im_dicom);return;
-	#endif
-
 	binary_t im_bin = binary_like(im_dicom);
 	measure_once("Thres", "Iso", {
 	threshold(im_bin, im_dicom, tv);
+
+	im_slots[0] = binary_like(im_bin);
+	memcpy(im_slots[0]->voxels, im_bin->voxels, im_bin->size_z * im_bin->off_z);
 
 	isolate(im_bin, im_bin, im_bin->size_x/2, 100, 20);
 	});
@@ -351,22 +347,35 @@ static void rebinarize() {
 
 	binary_free(insides5);
 	binary_free(insides10);
+	binary_free(im_bin);
 
 	im_slots[1] = closed;
-	im_slots[0] = im_bin;
 }
 
 /* Rendering Binary image into VBO. */
 GLuint vao_id;
-GLuint vbo_id, vbo_id_n;
+GLuint vbo_id;
 int vbo_initialized = 0;
 int vbo_vertcount;
 
-static void cubedim(float xa, float ya, float za, float xb, float yb, float zb, float *vnbuf) {
+int imseg_off[4];
+
+static void cubedim(float xa, float ya, float za, float xb, float yb, float zb, float **vnbuf, int *vertcount) {
+	*vnbuf = realloc(*vnbuf, 2 * (*vertcount + 6*2*3) * 3 * sizeof(float));
+
+	float *vn = *vnbuf + *vertcount * 2 * 3;
+
 	float nx, ny, nz;
-#   define V(a,b,c) vnbuf[0] = (a 1 > 0 ? xb : xa); vnbuf[1] = (b 1 > 0 ? yb : ya); vnbuf[2] = (c 1 > 0 ? zb : za); vnbuf[3] = nx; vnbuf[4] = ny; vnbuf[5] = nz; vnbuf += 6;
+#   define V(a,b,c) \
+	vn[0] = (a 1 > 0 ? xb : xa); \
+	vn[1] = (b 1 > 0 ? yb : ya); \
+	vn[2] = (c 1 > 0 ? zb : za); \
+	vn[3] = nx; \
+	vn[4] = ny; \
+	vn[5] = nz; \
+	vn += 6;
 #   define N(a,b,c) nx = a; ny = b; nz = c;
-	N( 1.0, 0.0, 0.0); /* 1 2 4   2 3 4 */
+	N( 1.0, 0.0, 0.0);
 		V(+,-,+); V(+,-,-); V(+,+,+);
 		V(+,-,-); V(+,+,-); V(+,+,+);
 	N( 0.0, 1.0, 0.0);
@@ -386,25 +395,27 @@ static void cubedim(float xa, float ya, float za, float xb, float yb, float zb, 
 		V(-,+,-); V(+,+,-); V(+,-,-);
 #undef V
 #undef N
+
+	*vertcount += 6*2*3;
 }
 
-static void dumpVoxels() {
-	float *vnbuf = NULL;
-	vbo_vertcount = 0;
-
+static void dump_im(binary_t im, float **vnbuf, int *vertcount) {
 	int pointsDrawn = 0;
 	int cubesDrawn = 0;
 
 	int startz = -1;
 
-	int xm = im_slots[0]->size_x, ym = im_slots[0]->size_y, zm = im_slots[0]->size_z;
+	int
+		xm = im->size_x,
+		ym = im->size_y,
+		zm = im->size_z;
 
 	fprintf(stderr, "Rendering\n");
 
 	for (int y = 0; y < ym; y++) {
 	for (int x = 0; x < xm; x++) {
 	for (int z = 0; z < zm; z++) {
-		if (binary_at(im_slots[0], x, y, z)) {
+		if (binary_at(im, x, y, z)) {
 			pointsDrawn++;
 			if (startz == -1) {
 				startz = z;
@@ -418,10 +429,8 @@ static void dumpVoxels() {
 				float yb = (float)(y+1);
 				float zb = (float)(z);
 
-				vnbuf = realloc(vnbuf, 2 * (vbo_vertcount + 6*2*3) * 3 * sizeof(float));
-				cubedim(xa,ya,za,xb,yb,zb, vnbuf + vbo_vertcount * 2 * 3);
+				cubedim(xa,ya,za,xb,yb,zb, vnbuf, vertcount);
 				cubesDrawn++;
-				vbo_vertcount += 6*2*3;
 
 				startz = -1;
 			}
@@ -436,15 +445,36 @@ static void dumpVoxels() {
 		float yb = (float)(y+1);
 		float zb = (float)(zm);
 
-		vnbuf = realloc(vnbuf, 2 * (vbo_vertcount + 6*2*3) * 3 * sizeof(float));
-		cubedim(xa,ya,za,xb,yb,zb, vnbuf + vbo_vertcount * 2 * 3);
+		cubedim(xa,ya,za,xb,yb,zb, vnbuf, vertcount);
 		cubesDrawn++;
-		vbo_vertcount += 6*2*3;
 		startz = -1;
 	}
 
 	}
 	}
+
+
+	fprintf(stderr, "Rendered %7d points in %7d cubes (%7.4f%%)\n", pointsDrawn, cubesDrawn, 100. * cubesDrawn / pointsDrawn);
+}
+
+static void dumpVoxels() {
+	float *vnbuf = NULL;
+	vbo_vertcount = 0;
+
+	binary_t i_1_2 = binary_like(im_slots[0]);
+	binary_t i_1_n2 = binary_like(im_slots[0]);
+	binary_t i_n1_2 = binary_like(im_slots[0]);
+	memand2(i_1_2->voxels, im_slots[0]->voxels, im_slots[1]->voxels, im_slots[0]->size_z * im_slots[0]->off_z);
+	memandnot2(i_1_n2->voxels, im_slots[0]->voxels, im_slots[1]->voxels, im_slots[0]->size_z * im_slots[0]->off_z);
+	memandnot2(i_n1_2->voxels, im_slots[1]->voxels, im_slots[0]->voxels, im_slots[0]->size_z * im_slots[0]->off_z);
+
+	imseg_off[0] = 0;
+	dump_im(i_1_2, &vnbuf, &vbo_vertcount);
+	imseg_off[1] = vbo_vertcount;
+	dump_im(i_1_n2, &vnbuf, &vbo_vertcount);
+	imseg_off[2] = vbo_vertcount;
+	dump_im(i_n1_2, &vnbuf, &vbo_vertcount);
+	imseg_off[3] = vbo_vertcount;
 
 	glBindBuffer(GL_ARRAY_BUFFER, vbo_id);
 	glBufferData(GL_ARRAY_BUFFER, 2 * vbo_vertcount * 3 * sizeof(float), vnbuf, GL_STATIC_DRAW); GL_ERROR();
@@ -453,52 +483,28 @@ static void dumpVoxels() {
 	glEnableVertexAttribArray(0); GL_ERROR();
 	glEnableVertexAttribArray(1); GL_ERROR();
 
-
+	memset(vnbuf, 0, 2 * vbo_vertcount * 3 * sizeof(float)); /* optional, bug check */
 	free(vnbuf);
 
-	fprintf(stderr, "Rendered %7d points in %7d cubes (%7.4f%%)\n", pointsDrawn, cubesDrawn, 100. * cubesDrawn / pointsDrawn);
+	fprintf(stderr, "%d vertices = %d floats = %d byte\n",
+		vbo_vertcount,
+		2 * vbo_vertcount * 3,
+		2 * vbo_vertcount * 3 * sizeof(float)
+	);
 }
-
 
 static void update_vbo() {
 	if (vbo_initialized) {
 		glDeleteBuffers(1, &vbo_id);
-		glDeleteBuffers(1, &vbo_id_n);
 	}
 
 	glGenVertexArrays(1, &vao_id);
 	glBindVertexArray(vao_id);
 
 	glGenBuffers(1, &vbo_id);
-	glGenBuffers(1, &vbo_id_n);
 	dumpVoxels();
 
-	//glBindBuffer(GL_ARRAY_BUFFER, vbo_id); GL_ERROR();
-	//glVertexPointer(3, GL_FLOAT, 0, NULL); GL_ERROR();
-	//glBindBuffer(GL_ARRAY_BUFFER, vbo_id_n); GL_ERROR();
-	//glNormalPointer(GL_FLOAT, 0, NULL); GL_ERROR();
-	
-	//glEnableClientState(GL_VERTEX_ARRAY); GL_ERROR();
-	//glEnableClientState(GL_NORMAL_ARRAY); GL_ERROR();
-
 	vbo_initialized = 1;
-}
-
-void do_light() {
-
-	GLfloat light_position[] = { 3000.0, 1000.0, 3000.0, 0.0 };
-	GLfloat light_ambient[]  = { 0.1, 0.1, 0.1, 1.0 };
-	GLfloat light_diffuse[]  = { 0.8, 0.8, 0.8, 1.0 };
-	GLfloat light_specular[] = { 0.8, 0.8, 0.8, 1.0 };
-	glShadeModel (GL_FLAT);
-
-	glEnable(GL_LIGHTING);
-	glEnable(GL_LIGHT0);
-	glLightfv(GL_LIGHT0, GL_POSITION, light_position);
-	glLightfv(GL_LIGHT0, GL_AMBIENT, light_ambient);
-	glLightfv(GL_LIGHT0, GL_DIFFUSE, light_diffuse);
-	glLightfv(GL_LIGHT0, GL_SPECULAR, light_specular);
-	glEnable(GL_COLOR_MATERIAL);
 }
 
 static void keyfun(GLFWwindow *win, int key, int scancode, int action, int mods) {
@@ -565,12 +571,8 @@ int main() {
 	rebinarize();
 	update_vbo();
 
-	#ifdef FIXED_PL
-	do_light();
-	#else
 	GLuint shaderprog = make_shader_program("glview.vert", "glview.frag");
 	glUseProgram(shaderprog); GL_ERROR();
-	#endif
 
 	mat4 mat_view, mat_proj;
 	int angle = 0;
@@ -601,19 +603,19 @@ int main() {
 			mat_view
 		);
 
-		#ifdef FIXED_PL
-		glMatrixMode(GL_PROJECTION);
-		glLoadMatrixf(mat_proj);
-		glMatrixMode(GL_MODELVIEW);
-		glLoadMatrixf(mat_view);
-		#else
 		GLuint view_i = glGetUniformLocation(shaderprog, "mat_view"); GL_ERROR();
 		glUniformMatrix4fv(view_i, 1, GL_FALSE, mat_view); GL_ERROR();
 		GLuint proj_i = glGetUniformLocation(shaderprog, "mat_proj"); GL_ERROR();
 		glUniformMatrix4fv(proj_i, 1, GL_FALSE, mat_proj); GL_ERROR();
-		#endif
 
-		glDrawArrays(GL_TRIANGLES, 0, vbo_vertcount);
+		glUniform4f(glGetUniformLocation(shaderprog, "color"), 1.0f, 1.0f, 1.0f, 1.0f);
+		glDrawArrays(GL_TRIANGLES, imseg_off[0], imseg_off[1] - imseg_off[0]);
+
+		glUniform4f(glGetUniformLocation(shaderprog, "color"), 1.0f, 0.0f, 0.0f, 1.0f);
+		glDrawArrays(GL_TRIANGLES, imseg_off[1], imseg_off[2] - imseg_off[1]);
+
+		glUniform4f(glGetUniformLocation(shaderprog, "color"), 0.0f, 1.0f, 0.0f, 1.0f);
+		glDrawArrays(GL_TRIANGLES, imseg_off[2], imseg_off[3] - imseg_off[2]);
 
 		/* Swap front and back buffers */
 		glfwSwapBuffers(window);
