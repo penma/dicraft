@@ -360,12 +360,12 @@ int vbo_vertcount;
 
 int imseg_off[4];
 
-static void cubedim(float xa, float ya, float za, float xb, float yb, float zb, float **vnbuf, int *vertcount) {
-	*vnbuf = realloc(*vnbuf, 2 * (*vertcount + 6*2*3) * 3 * sizeof(float));
+static void cubedim(short xa, short ya, short za, short xb, short yb, short zb, short **vnbuf, int *vertcount) {
+	*vnbuf = realloc(*vnbuf, 2 * (*vertcount + 6*2*3) * 3 * sizeof(short));
 
-	float *vn = *vnbuf + *vertcount * 2 * 3;
+	short *vn = *vnbuf + *vertcount * 2 * 3;
 
-	float nx, ny, nz;
+	short nx, ny, nz;
 #   define V(a,b,c) \
 	vn[0] = (a 1 > 0 ? xb : xa); \
 	vn[1] = (b 1 > 0 ? yb : ya); \
@@ -375,22 +375,22 @@ static void cubedim(float xa, float ya, float za, float xb, float yb, float zb, 
 	vn[5] = nz; \
 	vn += 6;
 #   define N(a,b,c) nx = a; ny = b; nz = c;
-	N( 1.0, 0.0, 0.0);
+	N( 1, 0, 0);
 		V(+,-,+); V(+,-,-); V(+,+,+);
 		V(+,-,-); V(+,+,-); V(+,+,+);
-	N( 0.0, 1.0, 0.0);
+	N( 0, 1, 0);
 		V(+,+,+); V(+,+,-); V(-,+,+);
 		V(+,+,-); V(-,+,-); V(-,+,+);
-	N( 0.0, 0.0, 1.0);
+	N( 0, 0, 1);
 		V(+,+,+); V(-,+,+); V(+,-,+);
 		V(-,+,+); V(-,-,+); V(+,-,+);
-	N(-1.0, 0.0, 0.0);
+	N(-1, 0, 0);
 		V(-,-,+); V(-,+,+); V(-,-,-);
 		V(-,+,+); V(-,+,-); V(-,-,-);
-	N( 0.0,-1.0, 0.0);
+	N( 0,-1, 0);
 		V(-,-,+); V(-,-,-); V(+,-,+);
 		V(-,-,-); V(+,-,-); V(+,-,+);
-	N( 0.0, 0.0,-1.0);
+	N( 0, 0,-1);
 		V(-,-,-); V(-,+,-); V(+,-,-);
 		V(-,+,-); V(+,+,-); V(+,-,-);
 #undef V
@@ -399,7 +399,7 @@ static void cubedim(float xa, float ya, float za, float xb, float yb, float zb, 
 	*vertcount += 6*2*3;
 }
 
-static void dump_im(binary_t im, float **vnbuf, int *vertcount) {
+static void dump_im(binary_t im, short **vnbuf, int *vertcount) {
 	int pointsDrawn = 0;
 	int cubesDrawn = 0;
 
@@ -422,14 +422,7 @@ static void dump_im(binary_t im, float **vnbuf, int *vertcount) {
 			}
 		} else {
 			if (startz != -1) {
-				float xa = (float)x;
-				float ya = (float)y;
-				float za = (float)startz;
-				float xb = (float)(x+1);
-				float yb = (float)(y+1);
-				float zb = (float)(z);
-
-				cubedim(xa,ya,za,xb,yb,zb, vnbuf, vertcount);
+				cubedim(x, y, startz, x+1, y+1, z, vnbuf, vertcount);
 				cubesDrawn++;
 
 				startz = -1;
@@ -438,14 +431,7 @@ static void dump_im(binary_t im, float **vnbuf, int *vertcount) {
 	}
 
 	if (startz != -1) {
-		float xa = (float)x;
-		float ya = (float)y;
-		float za = (float)startz;
-		float xb = (float)(x+1);
-		float yb = (float)(y+1);
-		float zb = (float)(zm);
-
-		cubedim(xa,ya,za,xb,yb,zb, vnbuf, vertcount);
+		cubedim(x, y, startz, x+1, y+1, zm, vnbuf, vertcount);
 		cubesDrawn++;
 		startz = -1;
 	}
@@ -458,7 +444,7 @@ static void dump_im(binary_t im, float **vnbuf, int *vertcount) {
 }
 
 static void dumpVoxels() {
-	float *vnbuf = NULL;
+	short *vnbuf = NULL;
 	vbo_vertcount = 0;
 
 	binary_t i_1_2 = binary_like(im_slots[0]);
@@ -477,19 +463,19 @@ static void dumpVoxels() {
 	imseg_off[3] = vbo_vertcount;
 
 	glBindBuffer(GL_ARRAY_BUFFER, vbo_id);
-	glBufferData(GL_ARRAY_BUFFER, 2 * vbo_vertcount * 3 * sizeof(float), vnbuf, GL_STATIC_DRAW); GL_ERROR();
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 2*3*sizeof(float), 0); GL_ERROR();
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 2*3*sizeof(float), 3*sizeof(float)); GL_ERROR();
+	glBufferData(GL_ARRAY_BUFFER, 2 * vbo_vertcount * 3 * sizeof(short), vnbuf, GL_STATIC_DRAW); GL_ERROR();
+	glVertexAttribPointer(0, 3, GL_SHORT, GL_FALSE, 2*3*sizeof(short), 0); GL_ERROR();
+	glVertexAttribPointer(1, 3, GL_SHORT, GL_FALSE, 2*3*sizeof(short), 3*sizeof(short)); GL_ERROR();
 	glEnableVertexAttribArray(0); GL_ERROR();
 	glEnableVertexAttribArray(1); GL_ERROR();
 
-	memset(vnbuf, 0, 2 * vbo_vertcount * 3 * sizeof(float)); /* optional, bug check */
+	memset(vnbuf, 0, 2 * vbo_vertcount * 3 * sizeof(short)); /* optional, bug check */
 	free(vnbuf);
 
 	fprintf(stderr, "%d vertices = %d floats = %d byte\n",
 		vbo_vertcount,
 		2 * vbo_vertcount * 3,
-		2 * vbo_vertcount * 3 * sizeof(float)
+		2 * vbo_vertcount * 3 * sizeof(short)
 	);
 }
 
