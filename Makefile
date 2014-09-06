@@ -1,4 +1,4 @@
-SUBDIRS = libdicomprint libdpvoxelrender glview
+SUBDIRS = libdicomprint libdpvoxelrender glview python
 
 all:
 	for i in $(SUBDIRS); do \
