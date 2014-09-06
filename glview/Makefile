@@ -5,7 +5,7 @@ LDFLAGS = -L../libdpvoxelrender -L../libdicomprint
 
 glview: glview.o glv_image_processing.o
 
-clean-force:
+clean:
 	find -name '*.o' -delete
 	rm -f glview
 
