@@ -57,7 +57,7 @@ void packed_good(packed_t im, char *name) {
 
 	for (int i = 0; i < im->voxels - im->_actual_voxels; i++) {
 		if (im->_actual_voxels[i] != 0x00) {
-			fprintf(stderr, "%p/%s E: at x=%d: non-zero (%02x) byte before image start\n",
+			fprintf(stderr, "%p/%s E: at x=%ld: non-zero (%02x) byte before image start\n",
 				im, name,
 				(im->_actual_voxels - im->voxels) + i,
 				im->_actual_voxels[i]);

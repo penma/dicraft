@@ -1,9 +1,8 @@
-#include "floodfill/ff64.h"
+#include "floodfill/ff2d.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
 
 static inline int mod(int a, int n) {
 	return a>=n ? a%n : a>=0 ? a : n-1-(-1-a)%n;
@@ -18,43 +17,6 @@ static inline int memchr_off(const uint8_t *s, uint8_t c, size_t n) {
 	}
 }
 
-#include <fcntl.h>
-#include <unistd.h>
-static void write_single(binary_t old_im, binary_t new_im, int z, char *fn, int markx, int marky) {
-	int fd = open(fn, O_CREAT | O_WRONLY | O_TRUNC, 0666);
-	if (fd < 0) {
-		perror("write_difference: open");
-		return;
-	}
-
-	FILE *fh = fdopen(fd, "w");
-
-	fprintf(fh, "P6\n%d %d\n255\n", old_im->size_x, old_im->size_y);
-
-	uint8_t
-		c_ins[] = { 0x00, 0xff, 0x00 },
-		c_del[] = { 0xff, 0x00, 0x00 },
-		c_on[]  = { 0xff, 0xff, 0xff },
-		c_off[] = { 0x00, 0x00, 0x00 },
-		c_mark[]= { 0x00, 0x00, 0xff };
-
-	for (int y = 0; y < old_im->size_y; y++) {
-		for (int x = 0; x < old_im->size_x; x++) {
-			uint8_t vold = binary_at(old_im, x, y, z);
-			uint8_t vnew = binary_at(new_im, x, y, z);
-			uint8_t *to_write = vold
-				? (vnew ? c_on  : c_del)
-				: (vnew ? c_ins : c_off);
-			if (markx != x && marky != y) {
-				fwrite(to_write, 3, 1, fh);
-			} else {
-				fwrite(c_mark, 3, 1, fh);
-			}
-		}
-	}
-
-	fclose(fh);
-}
 void floodfill2d(binary_t dst, binary_t the_src, int xs, int ys, int z) {
 	binary_t src;
 	if (dst == the_src) {
@@ -73,18 +35,11 @@ void floodfill2d(binary_t dst, binary_t the_src, int xs, int ys, int z) {
 
 	int cx = xs, cy = ys, cz = z;
 
-	int file_no = 0;
-
 	binary_t d_q = binary_like(the_src);
 	free(d_q->voxels);
 	d_q->voxels = queue;
 
 	while (1) {
-		char fn[80];
-		sprintf(fn, "Idiff/%03d-%03d.pnm", z, file_no);
-		file_no++;
-		//write_single(d_q, dst, z, fn, cx, cy);
-
 		if (!i3d_inside(src, cx, cy, cz)) {
 			fprintf(stderr, "cc out of bounds: %d %d %d. This shouldn't happen.\n", cx, cy, cz);
 			exit(1);

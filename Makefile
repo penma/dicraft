@@ -1,12 +1,11 @@
-SUBDIRS = libdicraft-image libdicraft-render glview python
-
 all:
-	for i in $(SUBDIRS); do \
-		$(MAKE) -C $$i; \
-	done
+	$(MAKE) -C libdicraft-image
+	$(MAKE) -C libdicraft-render
+	$(MAKE) -C glview
+	$(MAKE) -C python
 
 clean:
-	for i in $(SUBDIRS); do \
+	for i in libdicraft-image libdicraft-render glview python; do \
 		$(MAKE) -C $$i clean; \
 	done
 

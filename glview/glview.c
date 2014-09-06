@@ -98,7 +98,7 @@ static void dumpVoxels() {
 	memset(vnbuf, 0, 2 * vbo_vertcount * 3 * sizeof(short)); /* optional, bug check */
 	free(vnbuf);
 
-	fprintf(stderr, "%d vertices = %d floats = %d byte\n",
+	fprintf(stderr, "%d vertices = %d floats = %ld byte\n",
 		vbo_vertcount,
 		2 * vbo_vertcount * 3,
 		2 * vbo_vertcount * 3 * sizeof(short)
@@ -242,7 +242,7 @@ int main() {
 		glfwSwapBuffers(window);
 
 		t2 = getus();
-		fprintf(stderr, "took %06dus = %10.5f FPS\r", t2 - t1, 1000000./(t2 - t1));
+		fprintf(stderr, "took %06ldus = %10.5f FPS\r", t2 - t1, 1000000./(t2 - t1));
 
 		/* Poll for and process events */
 		glfwPollEvents();

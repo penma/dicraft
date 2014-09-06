@@ -30,7 +30,7 @@ static void dilate1bit(uint8_t *dst, uint8_t *src, size_t len) {
 	uint32_t v0 = 0;
 	uint32_t v1 = ntohl(*(uint32_t*)(src));
 	uint32_t v2;
-	for (int i = 0; i < len; i += 4) {
+	for (size_t i = 0; i < len; i += 4) {
 		v2 = ntohl(*(uint32_t*)(src + i + 4));
 		uint32_t origv = v1;
 		uint32_t rshiftv =
@@ -53,7 +53,7 @@ static void erode1bit(uint8_t *dst, uint8_t *src, size_t len) {
 	uint32_t v0 = 0;
 	uint32_t v1 = ntohl(*(uint32_t*)(src));
 	uint32_t v2;
-	for (int i = 0; i < len; i += 4) {
+	for (size_t i = 0; i < len; i += 4) {
 		v2 = ntohl(*(uint32_t*)(src + i + 4));
 		uint32_t origv = v1;
 		uint32_t rshiftv =
