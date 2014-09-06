@@ -1,7 +1,7 @@
-CFLAGS = -fdiagnostics-color=auto -flto -Wall -Wextra -Os -ggdb -march=native -I. -I../libdicomprint -I../libdpvoxelrender -std=gnu99
+CFLAGS = -fdiagnostics-color=auto -flto -Wall -Wextra -Os -ggdb -march=native -I. -I../libdicraft-image -I../libdicraft-render -std=gnu99
 
-LDLIBS = -ldicomprint -ldpvoxelrender -lm -lGLEW -lGL -lGLU -lglfw
-LDFLAGS = -L../libdpvoxelrender -L../libdicomprint
+LDLIBS = -ldicraft-image -ldicraft-render -lm -lGLEW -lGL -lGLU -lglfw
+LDFLAGS = -L../libdicraft-image -L../libdicraft-render
 
 glview: glview.o glv_image_processing.o
 

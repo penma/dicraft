@@ -1,4 +1,4 @@
-SUBDIRS = libdicomprint libdpvoxelrender glview python
+SUBDIRS = libdicraft-image libdicraft-render glview python
 
 all:
 	for i in $(SUBDIRS); do \

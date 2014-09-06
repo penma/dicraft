@@ -4,7 +4,7 @@ CXXFLAGS = $(COMMON_OPT)
 
 LDLIBS_SO = -lofstd -loflog -ldcmdata -ldcmimage -ldcmimgle -ldcmjpeg -lstdc++ -lm
 
-SO_NAME = libdicomprint.so
+SO_NAME = libdicraft-image.so
 SO_VERSION = 1
 
 $(SO_NAME): load_dcm.o \
