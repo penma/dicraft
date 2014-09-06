@@ -1,0 +1,23 @@
+CFLAGS = -fdiagnostics-color=auto -flto -fpic -Wall -Wextra -Os -ggdb -march=native -I. -I../libdicomprint -std=gnu99
+
+LDLIBS_SO = -ldicomprint -lGLEW -lGL -lGLU
+LDLIBS = -ldicomprint -ldpvoxelrender -lm -lGLEW -lGL -lGLU -lglfw
+LDFLAGS = -L. -L../libdicomprint -ggdb
+
+SO_NAME = libdpvoxelrender.so
+SO_VERSION = 1
+
+%_inc.c: %.glsl
+	xxd -i $^ $@
+
+$(SO_NAME): create_vertexlist.o glv_image_processing.o matrix.o shaders.o vertex_shader_inc.o fragment_shader_inc.o
+	$(CC) -shared -Wl,-soname,$(SO_NAME).$(SO_VERSION) -flto -o $(SO_NAME).$(SO_VERSION)   $^ -L../libdicomprint $(LDLIBS_SO)
+	ln -fs $(SO_NAME).$(SO_VERSION) $(SO_NAME)
+
+glview: glview.o glv_image_processing.o
+
+clean-force:
+	find -name '*_inc.c' -delete
+	find -name '*.o' -delete
+	rm -f $(SO_NAME) $(SO_NAME).$(SO_VERSION)
+
