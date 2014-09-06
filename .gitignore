@@ -2,3 +2,4 @@
 *.so
 *.so.*
 core
+/glview/glview
