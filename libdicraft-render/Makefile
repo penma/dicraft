@@ -1,19 +1,20 @@
-CFLAGS = -fdiagnostics-color=auto -fpic -Wall -Wextra -Os -ggdb -march=native -I. -I../libdicraft-image -std=gnu99
+include ../mf/common
 
-LDLIBS_SO = -ldicraft-image -lGLEW -lGL -lGLU -lm
+CFLAGS = $(COMMON_CFLAGS) -fpic -I. -I../libdicraft-image
 
-SO_NAME = libdicraft-render.so
-SO_VERSION = 1
+LDLIBS_SO = -ldicraft-image $(OPENGL_LIBS) -lm
+LDFLAGS_SO = -L../libdicraft-image
 
-$(SO_NAME): create_vertexlist.o matrix.o shaders.o vertex_shader_inc.o fragment_shader_inc.o
-	$(CC) -shared -Wl,-soname,$(SO_NAME).$(SO_VERSION) -o $(SO_NAME).$(SO_VERSION)   $^ -L../libdicraft-image $(LDLIBS_SO)
-	ln -fs $(SO_NAME).$(SO_VERSION) $(SO_NAME)
+LIB_NAME = $(call libname,dicraft-render)
+SO_NAME = $(call soname,dicraft-render,1)
+
+$(LIB_NAME): create_vertexlist.o matrix.o shaders.o vertex_shader_inc.o fragment_shader_inc.o
 
 %_inc.c: %.glsl
 	xxd -i $^ $@
 
 clean:
-	find -name '*_inc.c' -delete
 	find -name '*.o' -delete
-	rm -f $(SO_NAME) $(SO_NAME).$(SO_VERSION)
+	rm -f $(LIB_NAME) $(SO_NAME)
+
 

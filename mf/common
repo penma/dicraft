@@ -1,0 +1,14 @@
+MF_COMMON := $(dir $(lastword $(MAKEFILE_LIST)))
+ifneq (,$(wildcard $(MF_COMMON)/local))
+	include $(MF_COMMON)/local
+endif
+
+ifeq ($(OS),Windows_NT)
+	include $(MF_COMMON)/windows
+else
+	include $(MF_COMMON)/unix
+endif
+
+COMMON_C_CXX_FLAGS = -Wall -Wextra -Os -ggdb -march=native $(LOCAL_INCLUDES)
+COMMON_CFLAGS = $(COMMON_C_CXX_FLAGS) -std=gnu99
+COMMON_CXXFLAGS = $(COMMON_C_CXX_FLAGS)

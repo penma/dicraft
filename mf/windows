@@ -1,0 +1,10 @@
+TARGET_OS = windows
+
+libname = lib$(1).dll
+soname = lib$(1).dll
+
+%.dll:
+	$(CC) -shared -Wl,--out-implib,$(LIB_NAME).a -o $(LIB_NAME) $^ $(LOCAL_LIB_PATHS) $(LDFLAGS_SO) $(LDLIBS_SO)
+
+OPENGL_LIBS = -lglew32 -lopengl32 -lglu32
+GLFW_LIBS = -lglfw3 -lgdi32

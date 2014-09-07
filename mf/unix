@@ -1,0 +1,12 @@
+TARGET_OS = unix
+
+libname = lib$(1).so
+soname = lib$(1).so.$(2)
+
+%.so:
+	$(CC) -shared -Wl,-soname,$(SO_NAME) -o $(SO_NAME) $^ $(LOCAL_LIB_PATHS) $(LDFLAGS_SO) $(LDLIBS_SO)
+	ln -fs $(SO_NAME) $(LIB_NAME)
+
+OPENGL_LIBS = -lGLEW -lGL -lGLU
+GLFW_LIBS = -lglfw
+GDCM_INCLUDE = -I/usr/include/gdcm-2.4
