@@ -16,7 +16,7 @@ static void checkForOpenGLError(const char* file, int line) {
 
 static GLuint compile_shader(const unsigned char *src, const unsigned int src_len, GLenum stype) {
 	GLuint shader = glCreateShader(stype); GL_ERROR();
-	glShaderSource(shader, 1, &src, &src_len); GL_ERROR();
+	glShaderSource(shader, 1, (const char *const *) &src, (const int *) &src_len); GL_ERROR();
 
 	glCompileShader(shader); GL_ERROR();
 
