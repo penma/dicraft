@@ -1,0 +1,40 @@
+This describes how to build the software for 64 bit Windows, on Windows itself.
+
+Install MSYS WITHOUT MinGW. (I tested 1.0.11, the last standalone MSYS.)
+It might be a good idea to change the installation path to something like
+c:/msys64, so you have a clean 64 bit only build environment.
+
+Install a 64 bit toolchain from http://win-builds.org/download.html and
+configure it "for MSYS".
+
+Install any variant of cmake, it is needed to build some dependencies.
+
+Build and install gdcm (create a build directory that is NOT inside the source
+tree, and run cmake -G "MSYS Makefiles" path/to/sources/gdcm-$version)
+
+Build and install glew.
+
+Build and install glfw (cmake -G "MSYS Makefiles" .) Not needed if you do not
+need the glview application (or if I removed it and forgot this notice in
+this file).
+
+Install the 64 bit Python package.
+
+
+You should be able to build the complete project tree now.
+
+
+
+As Windows doesn't support the ifunc mechanism (runtime detection of CPU
+features and replacing functions _transparently_) and I was too lazy to rewrite
+it to function pointers hidden behind macros (or so), on Windows in general
+the version to use is determined at compile time - with your help.
+
+Interesting options (preprocessor macros) are: BUILD_SSE2, BUILD_MMX
+
+When building for 64 bit Windows, both can be enabled, as MMX and SSE2 are
+always available in x86_64.
+
+Note that the build system is set to -march=native by default and GCC may
+decide to create code that doesn't run anywhere but on your own box.
+Edit it if you dislike this (or wait for a fix)
