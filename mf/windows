@@ -8,3 +8,5 @@ soname = lib$(1).dll
 
 OPENGL_LIBS = -lglew32 -lopengl32 -lglu32
 GLFW_LIBS = -lglfw3 -lgdi32
+
+PYTHON_SETUP_BUILD_FLAGS = --compiler=mingw32

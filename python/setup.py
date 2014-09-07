@@ -5,7 +5,7 @@ setup(name="dicomprint", version="0.1", ext_modules=[
 		extra_compile_args = [ "-include", "fixw64.h", "-std=gnu99", "-Wall", "-Wextra", "-Wno-unused-parameter", "-Wno-strict-prototypes", "-Wno-declaration-after-statement" ],
 		libraries = [ "dicraft-image" ],
 		include_dirs = [ "../libdicraft-image" ],
-		library_dirs = [ "../libdicraft-image" ],
+		library_dirs = [ "../libdicraft-image", "." ],
 		runtime_library_dirs = [ "../libdicraft-image" ]
 	)
 ])
