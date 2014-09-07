@@ -1,8 +1,8 @@
-COMMON_OPT = -fdiagnostics-color=auto -flto -fpic -Wall -Wextra -Os -ggdb -march=native -I.
+COMMON_OPT = -fdiagnostics-color=auto -flto -fpic -Wall -Wextra -Os -ggdb -march=native -I. -I/usr/include/gdcm-2.4
 CFLAGS = $(COMMON_OPT) -std=gnu99
 CXXFLAGS = $(COMMON_OPT)
 
-LDLIBS_SO = -lofstd -loflog -ldcmdata -ldcmimage -ldcmimgle -ldcmjpeg -lstdc++ -lm
+LDLIBS_SO = -lgdcmCommon -lgdcmMSFF -lgdcmDSED -lstdc++ -lm
 
 SO_NAME = libdicraft-image.so
 SO_VERSION = 1
