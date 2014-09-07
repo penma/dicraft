@@ -1,4 +1,4 @@
-PYTHON = python3
+include ../mf/common
 
 all:
 	$(PYTHON) setup.py build
