@@ -1,5 +1,7 @@
 TARGET_OS = unix
 
+TARGET_DEFINES = -DHAVE_IFUNC -DBUILD_SSE2 -DBUILD_MMX
+
 libname = lib$(1).so
 soname = lib$(1).so.$(2)
 

@@ -36,6 +36,8 @@ void pack_binary(restrict packed_t packed, restrict binary_t bin) {
 	}
 }
 
+/* For any platform */
+
 static void unpack_n(restrict binary_t bin, restrict packed_t packed) {
 	int xsize = packed->size_x, ysize = packed->size_y, zsize = packed->size_z;
 	int p_yoff = packed->off_y, p_zoff = packed->off_z;
@@ -53,7 +55,7 @@ static void unpack_n(restrict binary_t bin, restrict packed_t packed) {
 
 /* Optimized */
 
-#ifdef X86OID
+#ifdef BUILD_MMX
 
 #include <mmintrin.h>
 
@@ -91,18 +93,27 @@ static void unpack_mmx(restrict binary_t bin, restrict packed_t packed) {
 
 #endif
 
+#ifdef HAVE_IFUNC
+
 static void (*resolve_unpack(void))(restrict binary_t, restrict packed_t) {
-#ifdef X86OID
 	__builtin_cpu_init();
 	if (__builtin_cpu_supports("mmx")) {
 		return unpack_mmx;
 	} else {
 		return unpack_n;
 	}
-#else
-	return unpack_n;
-#endif
 }
 
 void unpack_binary(restrict binary_t, restrict packed_t) __attribute__ ((ifunc("resolve_unpack")));
 
+#else
+
+void unpack_binary(restrict binary_t bin, restrict packed_t packed) {
+#ifdef BUILD_MMX
+	unpack_mmx(bin, packed);
+#else
+	unpack_n(bin, packed);
+#endif
+}
+
+#endif

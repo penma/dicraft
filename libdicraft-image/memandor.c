@@ -1,10 +1,6 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#if defined(__i386__) || defined(__x86_64__)
-#define X86OID
-#endif
-
 #define U8P uint8_t *restrict
 #define U32P uint32_t *
 
@@ -79,7 +75,7 @@ void memandnot2(U8P dst, U8P p1, U8P p2, size_t len) {
  * (~20%, tested on Ivy Bridge)
  */
 
-#ifdef X86OID
+#ifdef BUILD_SSE2
 
 #include <emmintrin.h>
 #define loadu_si128(p) _mm_loadu_si128((__m128i*)(p))
@@ -107,34 +103,49 @@ static void memand3_sse2(U8P dst, U8P p1, U8P p2, U8P p3, size_t len) {
 
 #endif
 
+#ifdef HAVE_IFUNC
+
 /* Runtime CPU detection */
 
 static void (*resolve_memor3(void))(U8P, U8P, U8P, U8P, size_t) {
-#ifdef X86OID
 	__builtin_cpu_init();
 	if (__builtin_cpu_supports("sse2")) {
 		return memor3_sse2;
 	} else {
 		return memor3_n;
 	}
-#else
-	return memor3_n;
-#endif
 }
 
 static void (*resolve_memand3(void))(U8P, U8P, U8P, U8P, size_t) {
-#ifdef X86OID
 	__builtin_cpu_init();
 	if (__builtin_cpu_supports("sse2")) {
 		return memand3_sse2;
 	} else {
 		return memand3_n;
 	}
-#else
-	return memand3_n;
-#endif
 }
 
 void memand3(U8P, U8P, U8P, U8P, size_t) __attribute__ ((ifunc("resolve_memand3")));
 void memor3(U8P, U8P, U8P, U8P, size_t) __attribute__ ((ifunc("resolve_memor3")));
 
+#else
+
+/* No ifuncs, decide statically. */
+
+void memand3(U8P dst, U8P p1, U8P p2, U8P p3, size_t len) {
+#ifdef BUILD_SSE2
+	memand3_sse2(dst, p1, p2, p3, len);
+#else
+	memand3_n(dst, p1, p2, p3, len);
+#endif
+}
+
+void memor3(U8P dst, U8P p1, U8P p2, U8P p3, size_t len) {
+#ifdef BUILD_SSE2
+	memor3_sse2(dst, p1, p2, p3, len);
+#else
+	memor3_n(dst, p1, p2, p3, len);
+#endif
+}
+
+#endif

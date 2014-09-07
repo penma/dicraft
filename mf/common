@@ -9,6 +9,6 @@ else
 	include $(MF_COMMON)/unix
 endif
 
-COMMON_C_CXX_FLAGS = -Wall -Wextra -Os -ggdb -march=native $(LOCAL_INCLUDES)
+COMMON_C_CXX_FLAGS = $(TARGET_DEFINES) -Wall -Wextra -Os -ggdb -march=native $(LOCAL_INCLUDES)
 COMMON_CFLAGS = $(COMMON_C_CXX_FLAGS) -std=gnu99
 COMMON_CXXFLAGS = $(COMMON_C_CXX_FLAGS)

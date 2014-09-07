@@ -4,7 +4,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifndef _WIN32
 #include <arpa/inet.h> /* ntohl/htonl */
+#else
+#define ntohl __builtin_bswap32
+#define htonl __builtin_bswap32
+#endif
 
 static void memor_dilate(uint8_t *dst, uint8_t *src, int shift, int len) {
 	memor2(dst, src, src + shift, shift);
