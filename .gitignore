@@ -7,3 +7,4 @@
 core
 /glview/glview
 /mf/local
+/dicom-files/**/*.dcm

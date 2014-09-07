@@ -43,7 +43,7 @@ int image_generated = 0;
 uint16_t tv = 1700;
 
 static void dicom_load() {
-	char *dicomdir = "/home/penma/dicom-foo/3DPrint_DICOM/001 Anatomie UK Patient 1/DVT UK Patient 1";
+	char *dicomdir = "dicom-files/01uk";
 	im_dicom = load_dicom_dir(dicomdir);
 }
 
