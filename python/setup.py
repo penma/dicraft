@@ -1,4 +1,13 @@
 from distutils.core import setup, Extension
+
+# don't look at this.
+# (it makes compiling on mingw possible, somehow)
+import os
+if os.name == 'nt':
+	import distutils.sysconfig
+	distutils.sysconfig.get_config_vars()
+	distutils.sysconfig._config_vars["CC"] = "gcc"
+
 setup(name="dicomprint", version="0.1", ext_modules=[
 	Extension("dicomprint",
 		sources = [ "module.c", "binary_image.c", "grayscale_image.c" ],
@@ -9,3 +18,4 @@ setup(name="dicomprint", version="0.1", ext_modules=[
 		runtime_library_dirs = [ "../libdicraft-image" ]
 	)
 ])
+
