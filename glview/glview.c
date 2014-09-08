@@ -161,6 +161,8 @@ static uint64_t getus() {
 }
 
 int main() {
+	setbuf(stderr, 0); /* hello, MSYS, here's a hack for you */
+
 	GLFWwindow *window;
 
 	if (!glfwInit()) {

@@ -3,8 +3,11 @@
 *.so.*
 *.dll
 *.dll.a
+*.lib
+*.def
 *.exe
 core
 /glview/glview
 /mf/local
 /dicom-files/**/*.dcm
+/python/build
