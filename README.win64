@@ -1,24 +1,49 @@
 This describes how to build the software for 64 bit Windows, on Windows itself.
 
-Install MSYS WITHOUT MinGW. (I tested 1.0.11, the last standalone MSYS.)
-It might be a good idea to change the installation path to something like
-c:/msys64, so you have a clean 64 bit only build environment.
+Install MSYS (http://www.mingw.org/wiki/MSYS). (I tested 1.0.11, the last
+standalone MSYS.) Do NOT install MinGW (it does not have a 64 bit compiler at
+the time of this writing).
+Change the default install directory to c:/msys64. This has two advantages:
+1. if you already have MSYS/MinGW installed, this does not conflict, and you
+   get a clean 64 bit build environment
+2. if in some months you want to install a standard 32-bit MinGW, you will not
+   get surprised by incompatible 64 bit libraries
 
-Install a 64 bit toolchain from http://win-builds.org/download.html and
-configure it "for MSYS".
+Install a 64 bit toolchain from http://win-builds.org/download.html
+Configure it "for MSYS" (in the MSYS shell, run: yypkg-1.4.0.exe --deploy --host msys)
 
-Install any variant of cmake, it is needed to build some dependencies.
+Install any variant of cmake (http://www.cmake.org/download/). The binary x86
+package is fine and will also work. CMake is needed to build some of the needed
+libraries. It is a good idea to let the installer add CMake to system PATH
+(current or all users doesn't matter, though)
 
-Build and install gdcm (create a build directory that is NOT inside the source
-tree, and run cmake -G "MSYS Makefiles" path/to/sources/gdcm-$version)
+In the MSYS console window, run ". /opt/windows_64/bin/win-builds-switch 64"
+before running anything else, this makes the 64 bit toolchain available to MSYS.
 
-Build and install glew.
+Build and install gdcm (http://sourceforge.net/projects/gdcm/).
+Create a separate directory gdcm-build that is NOT inside the gdcm-2.4.3 source
+tree, and run:
+cmake -G "MSYS Makefiles" -DGDCM_BUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX:PATH=/ ../gdcm-2.4.3
 
-Build and install glfw (cmake -G "MSYS Makefiles" .) Not needed if you do not
-need the glview application (or if I removed it and forgot this notice in
-this file).
+Build and install glew (http://glew.sourceforge.net/).
 
-Install the 64 bit Python package.
+Build and install glfw (http://www.glfw.org/).
+Not needed if you do not need the glview application (or if I forgot to update
+this document and there is no glview anymore).
+run: cmake -G "MSYS Makefiles" -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX:PATH=/ .
+
+Install the 64 bit Python 3 package (https://www.python.org/downloads/windows/).
+
+It is likely that you do not have the xxd tool available. If you get errors
+about it while building it, it is in the Vim source code. Download the source
+(http://www.vim.org/sources.php), go to src/xxd, run make && cp xxd.exe /bin
+
+You might need to create mf/local with something like this:
+
+PYTHON = c:/python34/python
+GDCM_INCLUDE = -I/include/gdcm-2.4
+LOCAL_LIB_PATHS = -L/bin -L/lib
+LOCAL_INCLUDES = -I/include
 
 
 You should be able to build the complete project tree now.
