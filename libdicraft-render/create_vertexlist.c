@@ -56,40 +56,40 @@ void append_vertices_for_image(binary_t im, short **vnbuf, int *vertcount) {
 	int pointsDrawn = 0;
 	int cubesDrawn = 0;
 
-	int startz = -1;
+	int startx = -1;
 	int
 		xm = im->size_x,
 		ym = im->size_y,
 		zm = im->size_z;
 
-	for (int y = 0; y < ym; y++) {
-		for (int x = 0; x < xm; x++) {
-			for (int z = 0; z < zm; z++) {
+	for (int z = 0; z < zm; z++) {
+		for (int y = 0; y < ym; y++) {
+			for (int x = 0; x < xm; x++) {
 				if (binary_at(im, x, y, z)) {
 					pointsDrawn++;
 					/* we're at the start, or in the middle of,
 					 * a row of consecutive vertices.
 					 */
-					if (startz == -1) {
-						startz = z;
+					if (startx == -1) {
+						startx = x;
 					}
-				} else if (startz != -1) {
+				} else if (startx != -1) {
 					/* a row of consecutive vertices ends here.
 					 * create a cube for them now
 					 */
-					cubedim(x, y, startz, x+1, y+1, z, vnbuf, vertcount);
+					cubedim(startx, y, z, x, y+1, z+1, vnbuf, vertcount);
 					cubesDrawn++;
-					startz = -1;
+					startx = -1;
 				}
 			}
 
 			/* if the row of vertices ends on the image border,
 			 * we still need to create a cube
 			 */
-			if (startz != -1) {
-				cubedim(x, y, startz, x+1, y+1, zm, vnbuf, vertcount);
+			if (startx != -1) {
+				cubedim(startx, y, z, xm, y+1, z+1, vnbuf, vertcount);
 				cubesDrawn++;
-				startz = -1;
+				startx = -1;
 			}
 		}
 	}
