@@ -7,12 +7,10 @@
 #include <stdlib.h>
 
 /* Add a cube to given vertex+normal buffer, update the vertex count.
- * This function takes care of enlarging the buffer as needed.
+ * The buffer has to be large enough.
  */
-static void cubedim(short xa, short ya, short za, short xb, short yb, short zb, short **vnbuf, int *vertcount) {
-	*vnbuf = realloc(*vnbuf, 2 * (*vertcount + 6*2*3) * 3 * sizeof(short));
-
-	short *vn = *vnbuf + *vertcount * 2 * 3;
+static void cubedim(short xa, short ya, short za, short xb, short yb, short zb, short *vnbuf, int *vertcount) {
+	short *vn = vnbuf + *vertcount * 2 * 3;
 
 	short nx, ny, nz;
 #   define V(a,b,c) \
@@ -49,9 +47,9 @@ static void cubedim(short xa, short ya, short za, short xb, short yb, short zb, 
 }
 
 /* Append all voxels for this image to the given vertex+normal buffer.
- * Updates the vertex count. Takes care of enlarging the buffer as needed.
+ * Updates the vertex count. Expects the buffer to have enough space already.
  */
-void append_vertices_for_image(binary_t im, short **vnbuf, int *vertcount) {
+void append_vertices_for_image(binary_t im, short *vnbuf, int *vertcount) {
 	/* for statistics */
 	int pointsDrawn = 0;
 	int cubesDrawn = 0;
@@ -96,5 +94,48 @@ void append_vertices_for_image(binary_t im, short **vnbuf, int *vertcount) {
 
 	/* statistics */
 	fprintf(stderr, "Rendered %7d points in %7d cubes (%7.4f%%)\n", pointsDrawn, cubesDrawn, 100. * cubesDrawn / pointsDrawn);
+}
+
+static inline int memchr_off(const uint8_t *s, uint8_t c, size_t n) {
+	uint8_t *po = memchr(s, c, n);
+	if (po == NULL) {
+		return -1;
+	} else {
+		return po - s;
+	}
+}
+
+/* Finds out the number of vertices needed to represent this image.
+ */
+int count_vertices(binary_t im) {
+	int vertices = 0;
+
+	int
+		xm = im->size_x,
+		ym = im->size_y,
+		zm = im->size_z;
+
+	for (int z = 0; z < zm; z++) {
+		for (int y = 0; y < ym; y++) {
+			int rest = xm;
+			uint8_t *ptr = im->voxels + binary_offset(im, 0, y, z);
+			int o;
+			while (1) {
+				o = memchr_off(ptr, 0xff, rest);
+				if (o == -1) break;
+				ptr += o + 1;
+				rest -= o + 1;
+
+				vertices += 6*2*3;
+
+				o = memchr_off(ptr, 0x00, rest);
+				if (o == -1) break;
+				ptr += o + 1;
+				rest -= o + 1;
+			}
+		}
+	}
+
+	return vertices;
 }
 

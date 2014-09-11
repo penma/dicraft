@@ -80,13 +80,27 @@ static void dumpVoxels() {
 	memandnot2(i_1_n2->voxels, im_slots[0]->voxels, im_slots[1]->voxels, im_slots[0]->size_z * im_slots[0]->off_z);
 	memandnot2(i_n1_2->voxels, im_slots[1]->voxels, im_slots[0]->voxels, im_slots[0]->size_z * im_slots[0]->off_z);
 
+	int count_1_2, count_1_n2, count_n1_2;
+
+	measure_once("VBO creation", "count", {
+	count_1_2 = count_vertices(i_1_2);
+	count_1_n2 = count_vertices(i_1_n2);
+	count_n1_2 = count_vertices(i_n1_2);
+	fprintf(stderr, "Estimate says: %d\n", count_1_2);
+	fprintf(stderr, "Estimate says: %d\n", count_1_n2);
+	fprintf(stderr, "Estimate says: %d\n", count_n1_2);
+	});
+
+	measure_once("VBO creation", "append", {
+	vnbuf = realloc(vnbuf, 2 * (count_1_2 + count_1_n2 + count_n1_2) * 3 * sizeof(short));
 	imseg_off[0] = 0;
-	append_vertices_for_image(i_1_2, &vnbuf, &vbo_vertcount);
+	append_vertices_for_image(i_1_2, vnbuf, &vbo_vertcount);
 	imseg_off[1] = vbo_vertcount;
-	append_vertices_for_image(i_1_n2, &vnbuf, &vbo_vertcount);
+	append_vertices_for_image(i_1_n2, vnbuf, &vbo_vertcount);
 	imseg_off[2] = vbo_vertcount;
-	append_vertices_for_image(i_n1_2, &vnbuf, &vbo_vertcount);
+	append_vertices_for_image(i_n1_2, vnbuf, &vbo_vertcount);
 	imseg_off[3] = vbo_vertcount;
+	});
 
 	glBindBuffer(GL_ARRAY_BUFFER, vbo_id);
 	glBufferData(GL_ARRAY_BUFFER, 2 * vbo_vertcount * 3 * sizeof(short), vnbuf, GL_STATIC_DRAW); GL_ERROR();
