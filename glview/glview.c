@@ -86,9 +86,6 @@ static void dumpVoxels() {
 	count_1_2 = count_vertices(i_1_2);
 	count_1_n2 = count_vertices(i_1_n2);
 	count_n1_2 = count_vertices(i_n1_2);
-	fprintf(stderr, "Estimate says: %d\n", count_1_2);
-	fprintf(stderr, "Estimate says: %d\n", count_1_n2);
-	fprintf(stderr, "Estimate says: %d\n", count_n1_2);
 	});
 
 	measure_once("VBO creation", "append", {
