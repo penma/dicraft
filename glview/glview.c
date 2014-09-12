@@ -183,6 +183,7 @@ int main() {
 
 	window = glfwCreateWindow(640, 480, "Hello World", NULL, NULL);
 	if (!window) {
+		fprintf(stderr, "E: Failed to create window ()\n");
 		glfwTerminate();
 		exit(1);
 	}
